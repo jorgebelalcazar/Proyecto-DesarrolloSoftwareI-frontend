@@ -1,9 +1,7 @@
-import ProfileForm from "./components/ProfileForm";
+import CheckPassword from "./components/CheckPassword.jsx";
 
 function App() {
-  return (
-    <ProfileForm />
-  );
+  return <CheckPassword />;
 }
 
 export default App;
