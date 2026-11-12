@@ -1,7 +1,7 @@
-import CheckPassword from "./components/CheckPassword.jsx";
+import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 
 function App() {
-  return <CheckPassword />;
+  return <CreateUserDialogPreview />;
 }
 
 export default App;
