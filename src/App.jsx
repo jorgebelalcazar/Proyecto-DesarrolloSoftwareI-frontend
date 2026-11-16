@@ -1,7 +1,7 @@
-import UserDeactivationPreview from "./components/UserDeactivationPreview.jsx";
+import LoginPage from "./components/LoginPage.jsx";
 
 function App() {
-  return <UserDeactivationPreview />;
+  return <LoginPage />;
 }
 
 export default App;
