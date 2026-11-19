@@ -1,14 +1,16 @@
+import { useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Card,
   CardContent,
-  Chip,
   Container,
   Stack,
   Typography,
 } from "@mui/material";
+import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
+import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
@@ -21,9 +23,30 @@ const MENUS_POR_ROL = {
 
 export default function App() {
   const { isAuthenticated, user, activeRole, startSession, hasActiveRole } = useAuth();
+  const [mostrarRegistro, setMostrarRegistro] = useState(false);
 
   if (!isAuthenticated) {
-    return <LoginPage onLoginSuccess={startSession} />;
+    return (
+      <Box>
+        {mostrarRegistro ? (
+          <RegisterForm />
+        ) : (
+          <LoginPage onLoginSuccess={startSession} />
+        )}
+
+        <Box sx={{ textAlign: "center", py: 2, bgcolor: "#f8fafc" }}>
+          <Button
+            variant="text"
+            onClick={() => setMostrarRegistro((prev) => !prev)}
+            sx={{ textTransform: "none" }}
+          >
+            {mostrarRegistro
+              ? "¿Ya tienes cuenta? Inicia sesión aquí"
+              : "¿Eres autor nuevo? Regístrate aquí"}
+          </Button>
+        </Box>
+      </Box>
+    );
   }
 
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
@@ -64,12 +87,15 @@ export default function App() {
                 </Stack>
               </Box>
 
-              {/* Permisos de pantalla condicionales mediante hasActiveRole() */}
+              {/* Permisos y módulos condicionales mediante hasActiveRole() */}
               {hasActiveRole("ADMIN") && (
-                <Alert severity="warning">
-                  Permisos de <strong>Administrador</strong> activos: acceso habilitado a gestión
-                  de cuentas y parámetros del sistema.
-                </Alert>
+                <Stack spacing={2}>
+                  <Alert severity="warning">
+                    Permisos de <strong>Administrador</strong> activos: acceso habilitado a gestión
+                    de cuentas y parámetros del sistema.
+                  </Alert>
+                  <CreateUserDialogPreview />
+                </Stack>
               )}
 
               {hasActiveRole("COMITE") && (
