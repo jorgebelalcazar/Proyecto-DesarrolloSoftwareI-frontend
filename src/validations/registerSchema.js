@@ -25,13 +25,13 @@ export const registerSchema = z
     password: z
       .string()
       .min(1, "La contraseña es obligatoria")
-      .min(8, "La contraseña debe tener al menos 8 caracteres")
-      .regex(/[A-Z]/, "Debe incluir al menos una letra mayúscula")
-      .regex(/[a-z]/, "Debe incluir al menos una letra minúscula")
-      .regex(/[0-9]/, "Debe incluir al menos un número"),
+      .min(8, "La contraseña debe tener al menos 8 caracteres"),
     confirmPassword: z
       .string()
       .min(1, "Debes confirmar la contraseña"),
+    recaptchaToken: z
+      .string()
+      .min(1, "Por favor completa la verificación reCAPTCHA"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     path: ["confirmPassword"],

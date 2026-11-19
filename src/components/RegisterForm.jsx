@@ -1,11 +1,15 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import ReCAPTCHA from "react-google-recaptcha";
+import axios from "axios";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
+  CircularProgress,
   Container,
   IconButton,
   InputAdornment,
@@ -16,13 +20,21 @@ import {
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { registerSchema } from "../validations/registerSchema";
 
+const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+
 export default function RegisterForm() {
+  const recaptchaRef = useRef(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const {
     control,
     handleSubmit,
+    setValue,
+    reset,
     formState: { errors, isValid },
   } = useForm({
     resolver: zodResolver(registerSchema),
@@ -35,12 +47,50 @@ export default function RegisterForm() {
       pais: "",
       password: "",
       confirmPassword: "",
+      recaptchaToken: "",
     },
   });
 
-  const onSubmit = (data) => {
+  const handleRecaptchaChange = (token) => {
+    setValue("recaptchaToken", token || "", {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
+
+  const onSubmit = async (data) => {
+    setSubmitting(true);
+    setFeedback(null);
+
     const { confirmPassword: _, ...payload } = data;
-    console.log("Formulario válido listo para enviar al backend:", payload);
+    // payload ya incluye: nombreCompleto, email, institucion, pais, password y recaptchaToken
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/register/`, payload, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      setFeedback({
+        type: "success",
+        message: response.data?.message || "Registro completado con éxito.",
+      });
+      reset();
+      recaptchaRef.current?.reset();
+    } catch (error) {
+      const backendMsg =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        "No se pudo completar el registro. Verifica tus datos o intenta más tarde.";
+
+      setFeedback({
+        type: "error",
+        message: backendMsg,
+      });
+      setValue("recaptchaToken", "", { shouldValidate: true });
+      recaptchaRef.current?.reset();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -53,6 +103,12 @@ export default function RegisterForm() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
             Crea tu cuenta para postular artículos a la conferencia.
           </Typography>
+
+          {feedback && (
+            <Alert severity={feedback.type} sx={{ mb: 3 }}>
+              {feedback.message}
+            </Alert>
+          )}
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
             <Stack spacing={3}>
@@ -187,12 +243,33 @@ export default function RegisterForm() {
                 )}
               />
 
+              <Box sx={{ pt: 1 }}>
+                {SITE_KEY ? (
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={SITE_KEY}
+                    onChange={handleRecaptchaChange}
+                    onExpired={() => handleRecaptchaChange("")}
+                  />
+                ) : (
+                  <Alert severity="warning">
+                    Falta configurar <strong>VITE_RECAPTCHA_SITE_KEY</strong> en tu archivo <code>.env</code>.
+                  </Alert>
+                )}
+                {errors.recaptchaToken && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, display: "block" }}>
+                    {errors.recaptchaToken.message}
+                  </Typography>
+                )}
+              </Box>
+
               <Box sx={{ pt: 2, display: "flex", justifyContent: "flex-end" }}>
                 <Button
                   type="submit"
                   variant="contained"
                   size="large"
-                  disabled={!isValid}
+                  disabled={!isValid || submitting}
+                  startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : null}
                   sx={{
                     textTransform: "none",
                     px: 4,
@@ -200,7 +277,7 @@ export default function RegisterForm() {
                     width: { xs: "100%", sm: "auto" },
                   }}
                 >
-                  Registrarse
+                  {submitting ? "Enviando..." : "Registrarse"}
                 </Button>
               </Box>
             </Stack>
