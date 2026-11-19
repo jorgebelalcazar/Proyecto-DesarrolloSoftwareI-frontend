@@ -1,9 +1,7 @@
-import ProfileForm from "./components/ProfileForm";
+import RegisterForm from "./components/RegisterForm";
 
 function App() {
-  return (
-    <ProfileForm />
-  );
+  return <RegisterForm />;
 }
 
 export default App;
