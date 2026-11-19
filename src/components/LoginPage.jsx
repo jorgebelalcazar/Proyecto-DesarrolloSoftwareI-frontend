@@ -20,7 +20,7 @@ import { initializeAuth, login } from "../services/authService";
 
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
-export default function LoginPage() {
+export default function LoginPage({onLoginSuccess}) {
   const captchaRef = useRef(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,6 +48,8 @@ export default function LoginPage() {
       const result = await login({ email: email.trim(), password, captchaToken });
       setSession(result);
       setPassword("");
+      onLoginSuccess?.(result);
+
     } catch (requestError) {
       const status = requestError.response?.status;
       if (status === 401) {
