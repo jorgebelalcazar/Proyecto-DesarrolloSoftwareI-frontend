@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AppBar,
   Box,
@@ -25,6 +26,7 @@ function formatRoleLabel(role) {
 }
 
 export default function Navbar() {
+  const navigate = useNavigate();
   const { user, roles, activeRole, switchRole, endSession } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -34,6 +36,7 @@ export default function Navbar() {
     setLoggingOut(true);
     try {
       await endSession();
+      navigate("/login", {replace: true});
     } finally {
       setLoggingOut(false);
     }

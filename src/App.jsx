@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -21,100 +22,129 @@ const MENUS_POR_ROL = {
   ADMIN: ["Gestión de usuarios", "Configuración de eventos", "Reportes globales"],
 };
 
+function AuthScreen({ mostrarRegistro, setMostrarRegistro, startSession }) {
+  return (
+    <Box>
+      {mostrarRegistro ? (
+        <RegisterForm />
+      ) : (
+        <LoginPage onLoginSuccess={startSession} />
+      )}
+
+      <Box sx={{ textAlign: "center", py: 2, bgcolor: "#f8fafc" }}>
+        <Button
+          variant="text"
+          onClick={() => setMostrarRegistro((prev) => !prev)}
+          sx={{ textTransform: "none" }}
+        >
+          {mostrarRegistro
+            ? "¿Ya tienes cuenta? Inicia sesión aquí"
+            : "¿Eres autor nuevo? Regístrate aquí"}
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
 export default function App() {
   const { isAuthenticated, user, activeRole, startSession, hasActiveRole } = useAuth();
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
 
-  if (!isAuthenticated) {
-    return (
-      <Box>
-        {mostrarRegistro ? (
-          <RegisterForm />
-        ) : (
-          <LoginPage onLoginSuccess={startSession} />
-        )}
-
-        <Box sx={{ textAlign: "center", py: 2, bgcolor: "#f8fafc" }}>
-          <Button
-            variant="text"
-            onClick={() => setMostrarRegistro((prev) => !prev)}
-            sx={{ textTransform: "none" }}
-          >
-            {mostrarRegistro
-              ? "¿Ya tienes cuenta? Inicia sesión aquí"
-              : "¿Eres autor nuevo? Regístrate aquí"}
-          </Button>
-        </Box>
-      </Box>
-    );
-  }
-
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
-      <Navbar />
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/" replace />
+          ) : (
+            <AuthScreen
+              mostrarRegistro={mostrarRegistro}
+              setMostrarRegistro={setMostrarRegistro}
+              startSession={startSession}
+            />
+          )
+        }
+      />
 
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Card elevation={1}>
-          <CardContent>
-            <Stack spacing={2.5}>
-              <Typography variant="h5" fontWeight={700}>
-                Panel Principal
-              </Typography>
+      <Route
+        path="/"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
 
-              <Alert severity="info">
-                Sesión iniciada como <strong>{user.nombre}</strong>. Rol activo actual:{" "}
-                <strong>{activeRole || "Sin rol asignado"}</strong>.
-              </Alert>
+              <Container maxWidth="md" sx={{ py: 4 }}>
+                <Card elevation={1}>
+                  <CardContent>
+                    <Stack spacing={2.5}>
+                      <Typography variant="h5" fontWeight={700}>
+                        Panel Principal
+                      </Typography>
 
-              {/* Menús reactivos según el rol activo en AuthContext */}
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Menú habilitado para el rol activo:
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  {menusActivos.map((opcion) => (
-                    <Button
-                      key={opcion}
-                      variant="outlined"
-                      size="small"
-                      sx={{ textTransform: "none" }}
-                    >
-                      {opcion}
-                    </Button>
-                  ))}
-                </Stack>
-              </Box>
+                      <Alert severity="info">
+                        Sesión iniciada como <strong>{user.nombre}</strong>. Rol activo actual:{" "}
+                        <strong>{activeRole || "Sin rol asignado"}</strong>.
+                      </Alert>
 
-              {/* Permisos y módulos condicionales mediante hasActiveRole() */}
-              {hasActiveRole("ADMIN") && (
-                <Stack spacing={2}>
-                  <Alert severity="warning">
-                    Permisos de <strong>Administrador</strong> activos: acceso habilitado a gestión
-                    de cuentas y parámetros del sistema.
-                  </Alert>
-                  <CreateUserDialogPreview />
-                </Stack>
-              )}
+                      <Box>
+                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          Menú habilitado para el rol activo:
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {menusActivos.map((opcion) => (
+                            <Button
+                              key={opcion}
+                              variant="outlined"
+                              size="small"
+                              sx={{ textTransform: "none" }}
+                            >
+                              {opcion}
+                            </Button>
+                          ))}
+                        </Stack>
+                      </Box>
 
-              {hasActiveRole("COMITE") && (
-                <Alert severity="success">
-                  Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
-                  revisión y aval de artículos.
-                </Alert>
-              )}
+                      {hasActiveRole("ADMIN") && (
+                        <Stack spacing={2}>
+                          <Alert severity="warning">
+                            Permisos de <strong>Administrador</strong> activos: acceso habilitado a gestión
+                            de cuentas y parámetros del sistema.
+                          </Alert>
+                          <CreateUserDialogPreview />
+                        </Stack>
+                      )}
 
-              {hasActiveRole("AUTOR") && (
-                <Alert severity="info" variant="outlined">
-                  Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
-                  consultar tus artículos.
-                </Alert>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-      </Container>
-    </Box>
+                      {hasActiveRole("COMITE") && (
+                        <Alert severity="success">
+                          Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
+                          revisión y aval de artículos.
+                        </Alert>
+                      )}
+
+                      {hasActiveRole("AUTOR") && (
+                        <Alert severity="info" variant="outlined">
+                          Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
+                          consultar tus artículos.
+                        </Alert>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Container>
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="*"
+        element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />}
+      />
+    </Routes>
   );
 }
