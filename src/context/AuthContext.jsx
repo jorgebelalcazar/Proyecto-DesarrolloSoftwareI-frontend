@@ -1,8 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
     initializeAuth,
-    logout,
-    logout as logutService,
+    logout as logoutService,
     setActiveRole as setActiveRoleService,
 } from "../services/authService.js";
 
@@ -36,6 +35,9 @@ export function AuthProvider({ children }) {
         user: null,
         roles: [],
         activeRole: null,
+        /*user: { nombre: "Usuario Prueba", email: "prueba@correo.com" }, //Usuario de prueba, descomentar para probar el botón logout
+        roles: ["AUTOR"],
+        activeRole: "AUTOR",*/
     });
 
     useEffect(() => {
@@ -78,8 +80,8 @@ export function AuthProvider({ children }) {
         });
     }, []);
 
-    const endSession = useCallback(() => {
-        logoutService();
+    const endSession = useCallback(async () => {
+        await logoutService();
         setSession({
             user: null,
             roles: [],

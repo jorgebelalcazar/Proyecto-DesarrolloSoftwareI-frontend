@@ -2,6 +2,7 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_ENDPOINT || "/api/auth/login/";
+const LOGOUT_ENDPOINT = import.meta.env.VITE_LOGOUT_ENDPOINT || "/api/auth/logout/";
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -10,9 +11,6 @@ export const apiClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Keep the access JWT in memory. The server should use a Secure, HttpOnly
-// cookie for refresh/session continuity instead of exposing a persistent token
-// to JavaScript storage such as localStorage.
 let accessToken = null;
 let activeRole = null;
 
@@ -41,6 +39,16 @@ export function getActiveRole() {
 }
 
 export function initializeAuth() {
+  const storedToken = localStorage.getItem("access_token");
+  const storedRole = localStorage.getItem("active_role");
+
+  if (!accessToken && storedToken) {
+    accessToken = storedToken;
+  }
+  if (!activeRole && storedRole) {
+    activeRole = storedRole;
+  }
+
   if (accessToken) {
     apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
   }
@@ -49,6 +57,51 @@ export function initializeAuth() {
   }
   return Boolean(accessToken);
 }
+
+/**
+ * Purga credenciales locales (LocalStorage) y reinicia estados/cabeceras HTTP en el cliente.
+ */
+export function clearClientAuthState() {
+  // 1. Limpieza de credenciales y estados en LocalStorage
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("active_role");
+  localStorage.removeItem("user");
+
+  // 2. Reinicio de variables en memoria y cabeceras globales de Axios
+  setAccessToken(null);
+  setActiveRole(null);
+  delete apiClient.defaults.headers.common.Authorization;
+  delete apiClient.defaults.headers.common["X-Active-Role"];
+  delete axios.defaults.headers.common.Authorization;
+}
+
+// Interceptor de petición: sincroniza token y rol en cada request saliente
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = accessToken || localStorage.getItem("access_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    const role = activeRole || localStorage.getItem("active_role");
+    if (role) {
+      config.headers["X-Active-Role"] = role;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Interceptor de respuesta: limpia credenciales automáticamente ante un 401
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      clearClientAuthState();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export async function login({ email, password, captchaToken }) {
   const response = await apiClient.post(LOGIN_ENDPOINT, {
@@ -65,6 +118,7 @@ export async function login({ email, password, captchaToken }) {
   }
 
   setAccessToken(token);
+  localStorage.setItem("access_token", token);
 
   const rawUser = data.user || data.usuario || null;
   const user = rawUser
@@ -79,6 +133,8 @@ export async function login({ email, password, captchaToken }) {
       }
     : { nombre: email, email };
 
+  localStorage.setItem("user", JSON.stringify(user));
+
   const rawRoles = data.roles || rawUser?.roles || [];
   const roles = rawRoles.map((rol) =>
     typeof rol === "string" ? rol : rol.nombre || rol.codigo || String(rol)
@@ -86,14 +142,27 @@ export async function login({ email, password, captchaToken }) {
   const initialRole = data.active_role || data.rol_activo || roles[0] || null;
 
   setActiveRole(initialRole);
+  if (initialRole) {
+    localStorage.setItem("active_role", initialRole);
+  }
 
   return { user, roles, activeRole: initialRole };
 }
 
-export function logout() {
-  setAccessToken(null);
-  setActiveRole(null);
+export async function logoutUser() {
+  const refreshToken = localStorage.getItem("refresh_token");
+
+  try {
+    await apiClient.post(LOGOUT_ENDPOINT, refreshToken ? { refresh: refreshToken } : {});
+  } catch (error) {
+    console.warn("Aviso al cerrar sesión en backend:", error?.message);
+  } finally {
+    clearClientAuthState();
+  }
 }
+
+// Alias exportado por compatibilidad si algún componente de tu compañero llama a logout()
+export const logout = logoutUser;
 
 export function getErrorMessage(error) {
   if (!error?.response) {

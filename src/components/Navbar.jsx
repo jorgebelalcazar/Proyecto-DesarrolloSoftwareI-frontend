@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AppBar,
   Box,
@@ -24,9 +26,21 @@ function formatRoleLabel(role) {
 }
 
 export default function Navbar() {
+  const navigate = useNavigate();
   const { user, roles, activeRole, switchRole, endSession } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   if (!user) return null;
+
+  const handleLogoutClick = async () => {
+    setLoggingOut(true);
+    try {
+      await endSession();
+      navigate("/login", {replace: true});
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <AppBar position="static" elevation={1} sx={{ bgcolor: "#1e293b" }}>
@@ -75,7 +89,7 @@ export default function Navbar() {
               id="navbar-active-role-select"
               value={activeRole || ""}
               label="Rol activo"
-              disabled={roles.length <= 1}
+              disabled={roles.length <= 1 || loggingOut}
               onChange={(event) => switchRole(event.target.value)}
               sx={{
                 color: "#fff",
@@ -106,7 +120,8 @@ export default function Navbar() {
           <Button
             variant="outlined"
             size="small"
-            onClick={endSession}
+            disabled={loggingOut}
+            onClick={handleLogoutClick}
             sx={{
               color: "#fff",
               borderColor: "rgba(255, 255, 255, 0.45)",
@@ -117,7 +132,7 @@ export default function Navbar() {
               },
             }}
           >
-            Salir
+            {loggingOut ? "Saliendo..." : "Salir"}
           </Button>
         </Stack>
       </Toolbar>
