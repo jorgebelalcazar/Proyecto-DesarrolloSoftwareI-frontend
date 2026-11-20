@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
+import { Link as RouterLink } from "react-router-dom";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import {
@@ -173,6 +174,16 @@ export default function LoginPage({onLoginSuccess}) {
                     </Button>
                   </Stack>
                 </Box>
+              )}
+              {!session && (
+                <Button
+                  component={RouterLink}
+                  to="/recuperacion"
+                  variant="text"
+                  sx={{ alignSelf: "center", textTransform: "none" }}
+                >
+                  ¿Olvidaste tu contraseña?
+                </Button>
               )}
             </Stack>
           </CardContent>
