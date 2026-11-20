@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -15,6 +15,9 @@ import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
+import RequestPinPage from "./pages/RequestPinPage.jsx";
+import PinStepPage from "./pages/PinStepPage.jsx";
+import "./recovery.css";
 
 const MENUS_POR_ROL = {
   AUTOR: ["Mis artículos", "Enviar nueva ponencia", "Estado de evaluaciones"],
@@ -47,6 +50,7 @@ function AuthScreen({ mostrarRegistro, setMostrarRegistro, startSession }) {
 }
 
 export default function App() {
+  const navigate = useNavigate();
   const { isAuthenticated, user, activeRole, startSession, hasActiveRole } = useAuth();
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
 
@@ -54,6 +58,29 @@ export default function App() {
 
   return (
     <Routes>
+      <Route
+        path="/recuperacion"
+        element={
+          <div className="hu06-recovery">
+            <RequestPinPage navigate={navigate} />
+          </div>
+        }
+      />
+      <Route
+        path="/recuperacion/pin"
+        element={
+          window.sessionStorage.getItem("hu06-recovery-email") ? (
+            <div className="hu06-recovery">
+              <PinStepPage
+                email={window.sessionStorage.getItem("hu06-recovery-email")}
+                navigate={navigate}
+              />
+            </div>
+          ) : (
+            <Navigate to="/recuperacion" replace />
+          )
+        }
+      />
       <Route
         path="/login"
         element={
