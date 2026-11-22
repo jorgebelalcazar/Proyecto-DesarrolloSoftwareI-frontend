@@ -11,6 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
+import UserDeactivationPreview from "./components/UserDeactivationPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
@@ -55,6 +56,7 @@ export default function App() {
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
 
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
+  const isUsersPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
 
   return (
     <Routes>
@@ -92,6 +94,17 @@ export default function App() {
               setMostrarRegistro={setMostrarRegistro}
               startSession={startSession}
             />
+          )
+        }
+      />
+
+      <Route
+        path="/admin/usuarios"
+        element={
+          isUsersPreview || hasActiveRole(["ADMIN", "COMITE"]) ? (
+            <UserDeactivationPreview />
+          ) : (
+            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
           )
         }
       />
@@ -143,14 +156,32 @@ export default function App() {
                             de cuentas y parámetros del sistema.
                           </Alert>
                           <CreateUserDialogPreview />
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            onClick={() => navigate("/admin/usuarios")}
+                            sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                          >
+                            Gestión de bajas de usuarios
+                          </Button>
                         </Stack>
                       )}
 
                       {hasActiveRole("COMITE") && (
-                        <Alert severity="success">
-                          Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
-                          revisión y aval de artículos.
-                        </Alert>
+                        <Stack spacing={1.5} alignItems="flex-start">
+                          <Alert severity="success">
+                            Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
+                            revisión, aval de artículos y gestión de bajas.
+                          </Alert>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            onClick={() => navigate("/admin/usuarios")}
+                            sx={{ textTransform: "none" }}
+                          >
+                            Gestión de bajas de usuarios
+                          </Button>
+                        </Stack>
                       )}
 
                       {hasActiveRole("AUTOR") && (
