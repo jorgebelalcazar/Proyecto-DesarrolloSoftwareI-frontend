@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import UserDeactivationPreview from "./components/UserDeactivationPreview.jsx";
+import CoauthorsPreview from "./components/CoauthorsPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
@@ -57,6 +58,7 @@ export default function App() {
 
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
   const isUsersPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
+  const isCoauthorsPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
 
   return (
     <Routes>
@@ -103,6 +105,17 @@ export default function App() {
         element={
           isUsersPreview || hasActiveRole(["ADMIN", "COMITE"]) ? (
             <UserDeactivationPreview />
+          ) : (
+            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
+          )
+        }
+      />
+
+      <Route
+        path="/articulos/coautores"
+        element={
+          isCoauthorsPreview || hasActiveRole("AUTOR") ? (
+            <CoauthorsPreview />
           ) : (
             <Navigate to={isAuthenticated ? "/" : "/login"} replace />
           )
@@ -185,10 +198,19 @@ export default function App() {
                       )}
 
                       {hasActiveRole("AUTOR") && (
-                        <Alert severity="info" variant="outlined">
-                          Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
-                          consultar tus artículos.
-                        </Alert>
+                        <Stack spacing={1.5} alignItems="flex-start">
+                          <Alert severity="info" variant="outlined">
+                            Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
+                            consultar tus artículos.
+                          </Alert>
+                          <Button
+                            variant="outlined"
+                            onClick={() => navigate("/articulos/coautores")}
+                            sx={{ textTransform: "none" }}
+                          >
+                            Editar coautores del artículo
+                          </Button>
+                        </Stack>
                       )}
                     </Stack>
                   </CardContent>
