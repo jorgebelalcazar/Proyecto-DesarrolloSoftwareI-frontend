@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   Alert,
   Box,
@@ -14,10 +15,13 @@ import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
+import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
 import "./recovery.css";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const MENUS_POR_ROL = {
   AUTOR: ["Mis artículos", "Enviar nueva ponencia", "Estado de evaluaciones"],
@@ -45,6 +49,60 @@ function AuthScreen({ mostrarRegistro, setMostrarRegistro, startSession }) {
             : "¿Eres autor nuevo? Regístrate aquí"}
         </Button>
       </Box>
+    </Box>
+  );
+}
+
+function AdminUsersDirectorySection() {
+  const { activeRole, hasActiveRole } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await axios.get("http://127.0.0.1:8000/api/usuarios/", {
+        withCredentials: true, 
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "X-Rol-Activo": activeRole || localStorage.getItem("active_role"),
+  },
+});
+      const { data } = await axios.get(`${API_URL}/api/usuarios/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Rol-Activo": activeRole,
+        },
+      });
+      setUsers(Array.isArray(data) ? data : data.results || []);
+    } catch (err) {
+      setError(
+        err.response?.data?.detail ||
+          "No se pudo cargar el directorio de usuarios."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [activeRole]);
+
+  useEffect(() => {
+    if (hasActiveRole("ADMIN")) {
+      fetchUsers();
+    }
+  }, [hasActiveRole, fetchUsers]);
+
+  if (!hasActiveRole("ADMIN")) return null;
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <UsersDirectoryTable
+        users={users}
+        loading={loading}
+        error={error}
+        onRefresh={fetchUsers}
+      />
     </Box>
   );
 }
@@ -105,7 +163,7 @@ export default function App() {
             <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
               <Navbar />
 
-              <Container maxWidth="md" sx={{ py: 4 }}>
+              <Container maxWidth="lg" sx={{ py: 4 }}>
                 <Card elevation={1}>
                   <CardContent>
                     <Stack spacing={2.5}>
@@ -143,6 +201,7 @@ export default function App() {
                             de cuentas y parámetros del sistema.
                           </Alert>
                           <CreateUserDialogPreview />
+                          <AdminUsersDirectorySection />
                         </Stack>
                       )}
 
