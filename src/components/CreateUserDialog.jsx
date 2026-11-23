@@ -6,12 +6,15 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Alert,
   Stack,
   TextField,
 } from "@mui/material";
 import MultiSelectChips from "./MultiSelectChips";
 
-const emptyForm = { nombre: "", correo: "", roles: [], lineas: [] };
+const emptyForm = {
+  nombres: "", apellidos: "", correo: "", afiliacion: "", pais: "", clave: "", roles: [], lineas: [],
+};
 
 /** Reusable UI dialog. The parent owns persistence and supplies onCreateUser. */
 export default function CreateUserDialog({
@@ -21,6 +24,7 @@ export default function CreateUserDialog({
   rolesDisponibles = [],
   lineasDisponibles = [],
   loading = false,
+  error = "",
 }) {
   const [form, setForm] = useState(emptyForm);
 
@@ -32,13 +36,22 @@ export default function CreateUserDialog({
 
   const submit = async (event) => {
     event.preventDefault();
-    await onCreateUser({
-      nombre: form.nombre.trim(),
-      correo: form.correo.trim(),
-      roles: form.roles,
-      lineas: form.lineas,
-    });
-    setForm(emptyForm);
+    if (form.roles.length === 0) return;
+    try {
+      await onCreateUser({
+        nombres: form.nombres.trim(),
+        apellidos: form.apellidos.trim(),
+        correo: form.correo.trim(),
+        afiliacion: form.afiliacion.trim(),
+        pais: form.pais.trim(),
+        clave: form.clave,
+        roles: form.roles,
+        lineas: form.lineas,
+      });
+      setForm(emptyForm);
+    } catch {
+      // El contenedor presenta el error del servidor dentro del diálogo.
+    }
   };
 
   return (
@@ -54,15 +67,24 @@ export default function CreateUserDialog({
         <DialogContentText sx={{ mb: 2.5 }}>
           Registra los datos del miembro y asigna sus roles y líneas temáticas.
         </DialogContentText>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack component="form" id="create-user-form" spacing={2.5} onSubmit={submit}>
           <TextField
             autoFocus
             required
             fullWidth
-            label="Nombre completo"
-            value={form.nombre}
-            onChange={(event) => setForm((actual) => ({ ...actual, nombre: event.target.value }))}
-            autoComplete="name"
+            label="Nombres"
+            value={form.nombres}
+            onChange={(event) => setForm((actual) => ({ ...actual, nombres: event.target.value }))}
+            autoComplete="given-name"
+          />
+          <TextField
+            required
+            fullWidth
+            label="Apellidos"
+            value={form.apellidos}
+            onChange={(event) => setForm((actual) => ({ ...actual, apellidos: event.target.value }))}
+            autoComplete="family-name"
           />
           <TextField
             required
@@ -72,6 +94,30 @@ export default function CreateUserDialog({
             value={form.correo}
             onChange={(event) => setForm((actual) => ({ ...actual, correo: event.target.value }))}
             autoComplete="email"
+          />
+          <TextField
+            required
+            fullWidth
+            label="Afiliación institucional"
+            value={form.afiliacion}
+            onChange={(event) => setForm((actual) => ({ ...actual, afiliacion: event.target.value }))}
+          />
+          <TextField
+            required
+            fullWidth
+            label="País"
+            value={form.pais}
+            onChange={(event) => setForm((actual) => ({ ...actual, pais: event.target.value }))}
+          />
+          <TextField
+            required
+            fullWidth
+            type="password"
+            label="Contraseña (mínimo 8 caracteres)"
+            inputProps={{ minLength: 8 }}
+            value={form.clave}
+            onChange={(event) => setForm((actual) => ({ ...actual, clave: event.target.value }))}
+            autoComplete="new-password"
           />
           <MultiSelectChips
             label="Roles"

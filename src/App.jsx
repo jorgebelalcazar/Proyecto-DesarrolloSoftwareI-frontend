@@ -223,10 +223,13 @@ export default function App() {
                       )}
 
                       {hasActiveRole("COMITE") && (
-                        <Alert severity="success">
-                          Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
-                          revisión y aval de artículos.
-                        </Alert>
+                        <Stack spacing={2}>
+                          <Alert severity="success">
+                            Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
+                            revisión y aval de artículos.
+                          </Alert>
+                          <CreateUserDialogPreview />
+                        </Stack>
                       )}
 
                       {hasActiveRole("AUTOR") && (

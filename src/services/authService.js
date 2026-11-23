@@ -27,9 +27,9 @@ export function setActiveRole(role) {
   activeRole = role || null;
 
   if (activeRole) {
-    apiClient.defaults.headers.common["X-Active-Role"] = activeRole;
+    apiClient.defaults.headers.common["X-Rol-Activo"] = activeRole;
   } else {
-    delete apiClient.defaults.headers.common["X-Active-Role"];
+    delete apiClient.defaults.headers.common["X-Rol-Activo"];
   }
 }
 
@@ -52,7 +52,7 @@ export function initializeAuth() {
     apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
   }
   if (activeRole) {
-    apiClient.defaults.headers.common["X-Active-Role"] = activeRole;
+    apiClient.defaults.headers.common["X-Rol-Activo"] = activeRole;
   }
   return Boolean(accessToken);
 }
@@ -71,7 +71,7 @@ export function clearClientAuthState() {
   setAccessToken(null);
   setActiveRole(null);
   delete apiClient.defaults.headers.common.Authorization;
-  delete apiClient.defaults.headers.common["X-Active-Role"];
+  delete apiClient.defaults.headers.common["X-Rol-Activo"];
   delete axios.defaults.headers.common.Authorization;
 }
 
@@ -84,14 +84,14 @@ apiClient.interceptors.request.use(
     }
     const role = activeRole || localStorage.getItem("active_role");
     if (role) {
-      config.headers["X-Active-Role"] = role;
+      config.headers["X-Rol-Activo"] = role;
     }
     const isAuthRoute = config.url?.includes("/auth/login") || config.url?.includes("/auth/register");
     if (role && !isAuthRoute) {
-      config.headers["X-Active-Role"] = role;
+      config.headers["X-Rol-Activo"] = role;
     } else {
-      delete config.headers["X-Active-Role"];
-      delete apiClient.defaults.headers.common["X-Active-Role"];
+      delete config.headers["X-Rol-Activo"];
+      delete apiClient.defaults.headers.common["X-Rol-Activo"];
     }
     return config;
   },
