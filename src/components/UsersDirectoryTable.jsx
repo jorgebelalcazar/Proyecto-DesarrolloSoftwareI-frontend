@@ -1,7 +1,8 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
   FormControl,
@@ -27,6 +28,7 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ClearIcon from "@mui/icons-material/Clear";
+import FilterAltOffIcon from "@mui/icons-material/FilterAltOff";
 
 const ROLE_CHIP_CONFIG = {
   ADMIN: {
@@ -44,6 +46,12 @@ const ROLE_CHIP_CONFIG = {
     color: "success",
     variant: "outlined",
   },
+};
+
+const DEFAULT_FILTERS = {
+  search: "",
+  rol: "TODOS",
+  activo: "TODOS",
 };
 
 const normalizeRoles = (roles = []) =>
@@ -116,14 +124,85 @@ export default function UsersDirectoryTable({
   users = [],
   loading = false,
   error = "",
+  filters = { search: "", rol: "TODOS", activo: "TODOS" },
+  onFiltersChange,
   onRefresh,
 }) {
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("TODOS");
+  // Estado local del input para aplicar debounce antes de disparar Axios
+  const [searchInput, setSearchInput] = useState(filters.search || "");
   const [orderBy, setOrderBy] = useState("nombres");
   const [order, setOrder] = useState("asc");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const debounceTimerRef = useRef(null);
+
+  // Sincroniza si los filtros se limpian desde fuera
+  useEffect(() => {
+    setSearchInput(filters.search || "");
+  }, [filters.search]);
+
+  // Debounce de 400 ms para reactivar la consulta Axios al escribir
+  useEffect(() => {
+    debounceTimerRef.current = setTimeout(() => {
+      if (searchInput !== (filters.search || "")) {
+        setPage(0);
+        onFiltersChange?.({
+          ...filters,
+          search: searchInput,
+        });
+      }
+    }, 400);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchInput, filters, onFiltersChange]);
+
+  const handleRoleChange = (event) => {
+    setPage(0);
+    onFiltersChange?.({
+      ...filters,
+      rol: event.target.value,
+    });
+  };
+
+  const handleStatusChange = (event) => {
+    setPage(0);
+    onFiltersChange?.({
+      ...filters,
+      activo: event.target.value,
+    });
+  };
+
+  const handleClearFilters = () => {
+    if (debounceTimerRef.current){
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    setSearchInput(DEFAULT_FILTERS.search);
+    setRowsPerPage(10);
+    setPage(0);
+    setOrderBy("nombres");
+    setOrder("asc");
+
+    const hasAppliedCriteria =
+      (filters.search || "") !== DEFAULT_FILTERS.search || 
+      (filters.rol || "TODOS") !== DEFAULT_FILTERS.rol ||
+      (filters.activo || "TODOS") !== DEFAULT_FILTERS.activo;
+    
+    if (hasAppliedCriteria) {
+      onFiltersChange?.({ ...DEFAULT_FILTERS });
+    } else {
+      onRefresh?.();
+    }
+  };
+
+  const hasActiveFilters =
+    Boolean(searchInput.trim()) ||
+    (filters.rol && filters.rol !== DEFAULT_FILTERS.rol) ||
+    (filters.activo && filters.activo !== DEFAULT_FILTERS.activo);
 
   const handleRequestSort = (property) => {
     const isAsc = orderBy === property && order === "asc";
@@ -131,93 +210,77 @@ export default function UsersDirectoryTable({
     setOrderBy(property);
   };
 
-  const handleSearchChange = (event) => {
-    setSearch(event.target.value);
-    setPage(0);
-  };
-
-  const handleRoleFilterChange = (event) => {
-    setRoleFilter(event.target.value);
-    setPage(0);
-  };
-
-  const filteredAndSortedUsers = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    const filtered = users.filter((user) => {
-      const userRoles = normalizeRoles(user.roles);
-      const matchesRole = roleFilter === "TODOS" || userRoles.includes(roleFilter);
-
-      if (!matchesRole) return false;
-      if (!term) return true;
-
-      const fullName = ((user.nombres || "") + " " + (user.apellidos || "")).toLowerCase();
-      const email = (user.correo || "").toLowerCase();
-      const affiliation = (user.afiliacion || "").toLowerCase();
-      const country = (user.pais || "").toLowerCase();
-
-      return (
-        fullName.includes(term) ||
-        email.includes(term) ||
-        affiliation.includes(term) ||
-        country.includes(term)
-      );
-    });
-
-    return [...filtered].sort((a, b) => {
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
       const valA = (a[orderBy] || "").toString().toLowerCase();
       const valB = (b[orderBy] || "").toString().toLowerCase();
       if (valA < valB) return order === "asc" ? -1 : 1;
       if (valA > valB) return order === "asc" ? 1 : -1;
       return 0;
     });
-  }, [users, search, roleFilter, orderBy, order]);
+  }, [users, orderBy, order]);
 
   const paginatedUsers = useMemo(() => {
     const start = page * rowsPerPage;
-    return filteredAndSortedUsers.slice(start, start + rowsPerPage);
-  }, [filteredAndSortedUsers, page, rowsPerPage]);
+    return sortedUsers.slice(start, start + rowsPerPage);
+  }, [sortedUsers, page, rowsPerPage]);
 
   return (
     <Paper elevation={2} sx={{ width: "100%", overflow: "hidden", borderRadius: 2 }}>
+      {/* Barra superior de título y filtros combinados */}
       <Box sx={{ p: 2.5, borderBottom: "1px solid", borderColor: "divider" }}>
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          alignItems={{ xs: "stretch", md: "center" }}
-          justifyContent="space-between"
-        >
-          <Box>
-            <Typography variant="h6" fontWeight={600}>
-              Directorio de usuarios registrados
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {filteredAndSortedUsers.length} usuario(s) encontrado(s)
-            </Typography>
-          </Box>
+        <Stack spacing={2}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            spacing={1}
+          >
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                Directorio de usuarios registrados
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {sortedUsers.length} usuario(s) encontrado(s)
+              </Typography>
+            </Box>
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems="center">
+            {onRefresh && (
+              <Tooltip title="Recargar datos desde el servidor">
+                <span>
+                  <IconButton onClick={onRefresh} disabled={loading} color="primary">
+                    <RefreshIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+          </Stack>
+
+          {/* Barra de controles combinados: TextField + Selects + Limpiar */}
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={1.5}
+            alignItems={{ xs: "stretch", md: "center" }}
+          >
             <TextField
               size="small"
-              placeholder="Buscar por nombre, correo o afiliación..."
-              value={search}
-              onChange={handleSearchChange}
-              sx={{ minWidth: { xs: "100%", sm: 280 } }}
+              label="Buscar usuario"
+              placeholder="Nombre, correo o afiliación..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              sx={{ flexGrow: 1, minWidth: { xs: "100%", md: 260 } }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <SearchIcon fontSize="small" color="action" />
                   </InputAdornment>
                 ),
-                endAdornment: search ? (
+                endAdornment: searchInput ? (
                   <InputAdornment position="end">
                     <IconButton
                       size="small"
-                      aria-label="Limpiar búsqueda"
-                      onClick={() => {
-                        setSearch("");
-                        setPage(0);
-                      }}
+                      aria-label="Limpiar texto de búsqueda"
+                      onClick={() => setSearchInput("")}
                     >
                       <ClearIcon fontSize="small" />
                     </IconButton>
@@ -226,13 +289,13 @@ export default function UsersDirectoryTable({
               }}
             />
 
-            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 170 } }}>
+            <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 190 } }}>
               <InputLabel id="filter-role-label">Filtrar por rol</InputLabel>
               <Select
                 labelId="filter-role-label"
-                value={roleFilter}
+                value={filters.rol || "TODOS"}
                 label="Filtrar por rol"
-                onChange={handleRoleFilterChange}
+                onChange={handleRoleChange}
               >
                 <MenuItem value="TODOS">Todos los roles</MenuItem>
                 <MenuItem value="ADMIN">Administrador</MenuItem>
@@ -241,15 +304,31 @@ export default function UsersDirectoryTable({
               </Select>
             </FormControl>
 
-            {onRefresh && (
-              <Tooltip title="Actualizar listado">
-                <span>
-                  <IconButton onClick={onRefresh} disabled={loading} color="primary">
-                    <RefreshIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            )}
+            <FormControl size="small" sx={{ minWidth: { xs: "100%", md: 170 } }}>
+              <InputLabel id="filter-status-label">Estado de cuenta</InputLabel>
+              <Select
+                labelId="filter-status-label"
+                value={filters.activo || "TODOS"}
+                label="Estado de cuenta"
+                onChange={handleStatusChange}
+              >
+                <MenuItem value="TODOS">Todos los estados</MenuItem>
+                <MenuItem value="true">Activos</MenuItem>
+                <MenuItem value="false">Inactivos</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Button
+              variant="outlined"
+              color="secondary"
+              size="medium"
+              startIcon={<FilterAltOffIcon />}
+              onClick={handleClearFilters}
+              disabled={!hasActiveFilters || loading}
+              sx={{ whiteSpace: "nowrap", height: 40 }}
+            >
+              Limpiar Filtros
+            </Button>
           </Stack>
         </Stack>
       </Box>
@@ -306,7 +385,7 @@ export default function UsersDirectoryTable({
                 <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                   <CircularProgress size={32} />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Cargando directorio de usuarios...
+                    Consultando usuarios...
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -314,7 +393,7 @@ export default function UsersDirectoryTable({
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
                   <Typography variant="body1" color="text.secondary">
-                    No se encontraron usuarios que coincidan con los criterios de búsqueda.
+                    No se encontraron usuarios con los criterios seleccionados.
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -345,7 +424,7 @@ export default function UsersDirectoryTable({
 
       <TablePagination
         component="div"
-        count={filteredAndSortedUsers.length}
+        count={sortedUsers.length}
         page={page}
         onPageChange={(_, newPage) => setPage(newPage)}
         rowsPerPage={rowsPerPage}
