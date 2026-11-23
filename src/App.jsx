@@ -13,12 +13,15 @@ import {
 import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import UserDeactivationPreview from "./components/UserDeactivationPreview.jsx";
 import CoauthorsPreview from "./components/CoauthorsPreview.jsx";
+import ArticlesCatalog from "./components/ArticlesCatalog.jsx";
+import ArticlesCatalogPreview from "./components/ArticlesCatalogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
+import { fetchArticles } from "./services/articlesService.js";
 import "./recovery.css";
 
 const MENUS_POR_ROL = {
@@ -59,6 +62,7 @@ export default function App() {
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
   const isUsersPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
   const isCoauthorsPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
+  const isArticlesPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
 
   return (
     <Routes>
@@ -116,6 +120,19 @@ export default function App() {
         element={
           isCoauthorsPreview || hasActiveRole("AUTOR") ? (
             <CoauthorsPreview />
+          ) : (
+            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
+          )
+        }
+      />
+
+      <Route
+        path="/articulos/catalogo"
+        element={
+          isArticlesPreview ? (
+            <ArticlesCatalogPreview />
+          ) : hasActiveRole(["ADMIN", "COMITE"]) ? (
+            <ArticlesCatalog fetchArticles={fetchArticles} />
           ) : (
             <Navigate to={isAuthenticated ? "/" : "/login"} replace />
           )
@@ -194,7 +211,24 @@ export default function App() {
                           >
                             Gestión de bajas de usuarios
                           </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={() => navigate("/articulos/catalogo")}
+                            sx={{ textTransform: "none" }}
+                          >
+                            Consultar catálogo de artículos
+                          </Button>
                         </Stack>
+                      )}
+
+                      {hasActiveRole("ADMIN") && (
+                        <Button
+                          variant="outlined"
+                          onClick={() => navigate("/articulos/catalogo")}
+                          sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                        >
+                          Consultar catálogo de artículos
+                        </Button>
                       )}
 
                       {hasActiveRole("AUTOR") && (
