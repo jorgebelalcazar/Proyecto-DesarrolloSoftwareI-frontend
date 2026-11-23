@@ -15,3 +15,8 @@ export async function fetchArticles(filters) {
   // Supports a paginated DRF response and a plain array response.
   return Array.isArray(response.data) ? response.data : response.data.results || [];
 }
+
+export async function disableArticle(articleId, motivo) {
+  const response = await apiClient.post(`${ARTICLES_ENDPOINT}${articleId}/deshabilitar/`, { motivo });
+  return response.data;
+}

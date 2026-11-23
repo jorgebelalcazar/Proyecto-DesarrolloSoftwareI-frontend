@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -15,13 +15,15 @@ import UserDeactivationPreview from "./components/UserDeactivationPreview.jsx";
 import CoauthorsPreview from "./components/CoauthorsPreview.jsx";
 import ArticlesCatalog from "./components/ArticlesCatalog.jsx";
 import ArticlesCatalogPreview from "./components/ArticlesCatalogPreview.jsx";
+import ArticleDisablePanel from "./components/ArticleDisablePanel.jsx";
+import ArticleDisablePreview from "./components/ArticleDisablePreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
-import { fetchArticles } from "./services/articlesService.js";
+import { disableArticle, fetchArticles } from "./services/articlesService.js";
 import "./recovery.css";
 
 const MENUS_POR_ROL = {
@@ -54,6 +56,19 @@ function AuthScreen({ mostrarRegistro, setMostrarRegistro, startSession }) {
   );
 }
 
+function CommitteeDisablePage() {
+  const { articleId } = useParams();
+
+  return (
+    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 6 } }}>
+      <ArticleDisablePanel
+        article={{ id: articleId, titulo: "Artículo seleccionado", autor: "", estado: "En revisión" }}
+        onDisable={disableArticle}
+      />
+    </Container>
+  );
+}
+
 export default function App() {
   const navigate = useNavigate();
   const { isAuthenticated, user, activeRole, startSession, hasActiveRole } = useAuth();
@@ -63,6 +78,7 @@ export default function App() {
   const isUsersPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
   const isCoauthorsPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
   const isArticlesPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
+  const isDisablePreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
 
   return (
     <Routes>
@@ -133,6 +149,19 @@ export default function App() {
             <ArticlesCatalogPreview />
           ) : hasActiveRole(["ADMIN", "COMITE"]) ? (
             <ArticlesCatalog fetchArticles={fetchArticles} />
+          ) : (
+            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
+          )
+        }
+      />
+
+      <Route
+        path="/articulos/:articleId/deshabilitar"
+        element={
+          isDisablePreview ? (
+            <ArticleDisablePreview />
+          ) : hasActiveRole("COMITE") ? (
+            <CommitteeDisablePage />
           ) : (
             <Navigate to={isAuthenticated ? "/" : "/login"} replace />
           )
@@ -217,6 +246,14 @@ export default function App() {
                             sx={{ textTransform: "none" }}
                           >
                             Consultar catálogo de artículos
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            onClick={() => navigate("/articulos/ART-0264/deshabilitar")}
+                            sx={{ textTransform: "none" }}
+                          >
+                            Supervisar y deshabilitar artículo
                           </Button>
                         </Stack>
                       )}
