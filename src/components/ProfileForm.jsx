@@ -1,131 +1,227 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { 
-  Box, 
-  Button, 
-  Card, 
-  CardContent, 
-  Container, 
-  Stack, 
-  TextField, 
-  Typography, 
-  MenuItem 
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Stack,
+  TextField,
+  Typography,
 } from "@mui/material";
 import { profileSchema } from "../validations/profileSchema";
+import { getMyProfile } from "../services/profileService";
 
 export default function ProfileForm() {
-  const { 
-    control, 
-    handleSubmit, 
-    formState: { errors } 
-  } = useForm({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      nombreCompleto: "",
-      email: "",
-      telefono: "",
-      institucion: "",
-      facultad: "",
-      pais: "",
-      lineaTematica: "",
-    }
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [readonlyMeta, setReadonlyMeta] = useState({
+    roles: [],
+    especialidades: [],
   });
 
-  const onSubmit = (data) => {
-    console.log("Datos del perfil y afiliación enviados:", data);
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid, isDirty },
+  } = useForm({
+    resolver: zodResolver(profileSchema),
+    mode: "onChange",
+    defaultValues: {
+      nombres: "",
+      apellidos: "",
+      correo: "",
+      afiliacion: "",
+      pais: "",
+    },
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchProfile() {
+      setLoadingProfile(true);
+      setLoadError("");
+      try {
+        const data = await getMyProfile();
+        if (!isMounted) return;
+
+        reset({
+          nombres: data.nombres || "",
+          apellidos: data.apellidos || "",
+          correo: data.correo || data.email || "",
+          afiliacion: data.afiliacion || "",
+          pais: data.pais || "",
+        });
+
+        setReadonlyMeta({
+          roles: Array.isArray(data.roles) ? data.roles : [],
+          especialidades: Array.isArray(data.especialidades) ? data.especialidades : [],
+        });
+      } catch (err) {
+        if (!isMounted) return;
+        setLoadError(
+          err.response?.data?.detail ||
+            "No se pudieron cargar los datos de tu perfil."
+        );
+      } finally {
+        if (isMounted) setLoadingProfile(false);
+      }
+    }
+
+    fetchProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [reset]);
+
+  // En HU-10.4 conectaremos aquí el PATCH y los Snackbars
+  const onSubmit = (formData) => {
+    console.log("Datos listos para PATCH (HU-10.4):", formData);
   };
+
+  if (loadingProfile) {
+    return (
+      <Container maxWidth="sm" sx={{ mt: 6, textAlign: "center" }}>
+        <CircularProgress />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Cargando información del perfil...
+        </Typography>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
       <Card elevation={1} sx={{ borderRadius: 3, p: { xs: 2, md: 4 } }}>
         <CardContent>
           <Typography variant="h5" fontWeight="bold" gutterBottom color="text.primary">
-            Editar Perfil y Afiliación
+            Mi Perfil y Afiliación
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-            Actualiza tu información personal y los datos de tu institución académica.
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Consulta y actualiza tu información personal y académica.
           </Typography>
 
+          {loadError && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {loadError}
+            </Alert>
+          )}
+
+          {/* Información de solo lectura (Roles y Líneas Temáticas asignadas) */}
+          {(readonlyMeta.roles.length > 0 || readonlyMeta.especialidades.length > 0) && (
+            <Box
+              sx={{
+                mb: 3,
+                p: 2,
+                bgcolor: "#f8fafc",
+                borderRadius: 2,
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              {readonlyMeta.roles.length > 0 && (
+                <Box sx={{ mb: readonlyMeta.especialidades.length > 0 ? 1.5 : 0 }}>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                    Roles asignados (solo lectura)
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                    {readonlyMeta.roles.map((rol, idx) => {
+                      const label = typeof rol === "string" ? rol : rol?.nombre || "";
+                      return <Chip key={idx} label={label} size="small" color="primary" variant="outlined" />;
+                    })}
+                  </Stack>
+                </Box>
+              )}
+
+              {readonlyMeta.especialidades.length > 0 && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" gutterBottom>
+                    Líneas temáticas vinculadas
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                    {readonlyMeta.especialidades.map((esp, idx) => {
+                      const label = typeof esp === "string" ? esp : esp?.nombre || "";
+                      return <Chip key={idx} label={label} size="small" color="info" variant="outlined" />;
+                    })}
+                  </Stack>
+                </Box>
+              )}
+            </Box>
+          )}
+
           <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
-            <Stack spacing={3}>
-              
-              {/* 1. Datos Personales */}
-              <Typography variant="subtitle1" fontWeight="bold" color="primary" sx={{ mt: 1 }}>
+            <Stack spacing={2.5}>
+              <Typography variant="subtitle1" fontWeight="bold" color="primary">
                 1. Datos Personales
               </Typography>
 
               <Controller
-                name="nombreCompleto"
+                name="nombres"
                 control={control}
                 render={({ field }) => (
                   <TextField
                     {...field}
                     fullWidth
-                    label="Nombre Completo"
-                    error={!!errors.nombreCompleto}
-                    helperText={errors.nombreCompleto?.message}
+                    required
+                    label="Nombres"
+                    error={!!errors.nombres}
+                    helperText={errors.nombres?.message}
                   />
                 )}
               />
 
               <Controller
-                name="email"
+                name="apellidos"
                 control={control}
                 render={({ field }) => (
                   <TextField
                     {...field}
                     fullWidth
+                    required
+                    label="Apellidos"
+                    error={!!errors.apellidos}
+                    helperText={errors.apellidos?.message}
+                  />
+                )}
+              />
+
+              <Controller
+                name="correo"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    required
+                    type="email"
                     label="Correo Electrónico"
-                    error={!!errors.email}
-                    helperText={errors.email?.message}
+                    error={!!errors.correo}
+                    helperText={errors.correo?.message}
                   />
                 )}
               />
 
-              <Controller
-                name="telefono"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Teléfono / Celular"
-                    error={!!errors.telefono}
-                    helperText={errors.telefono?.message}
-                  />
-                )}
-              />
-
-              {/* 2. Datos de Afiliación (ubicado exactamente debajo del teléfono) */}
-              <Typography variant="subtitle1" fontWeight="bold" color="primary" sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" fontWeight="bold" color="primary" sx={{ pt: 1 }}>
                 2. Datos de Afiliación
               </Typography>
 
               <Controller
-                name="institucion"
+                name="afiliacion"
                 control={control}
                 render={({ field }) => (
                   <TextField
                     {...field}
                     fullWidth
+                    required
                     label="Institución / Universidad"
-                    error={!!errors.institucion}
-                    helperText={errors.institucion?.message}
-                  />
-                )}
-              />
-
-              <Controller
-                name="facultad"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Facultad / Departamento"
-                    error={!!errors.facultad}
-                    helperText={errors.facultad?.message}
+                    error={!!errors.afiliacion}
+                    helperText={errors.afiliacion?.message}
                   />
                 )}
               />
@@ -137,6 +233,7 @@ export default function ProfileForm() {
                   <TextField
                     {...field}
                     fullWidth
+                    required
                     label="País"
                     error={!!errors.pais}
                     helperText={errors.pais?.message}
@@ -144,39 +241,22 @@ export default function ProfileForm() {
                 )}
               />
 
-              <Controller
-                name="lineaTematica"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
-                    fullWidth
-                    label="Línea Temática Principal"
-                    error={!!errors.lineaTematica}
-                    helperText={errors.lineaTematica?.message}
-                  >
-                    <MenuItem value="Sistemas Inteligentes">Sistemas Inteligentes</MenuItem>
-                    <MenuItem value="Tecnologías en Informática">Tecnologías en Informática</MenuItem>
-                    <MenuItem value="Educación en Informática">Educación en Informática</MenuItem>
-                    <MenuItem value="Sistemas de Software">Sistemas de Software</MenuItem>
-                    <MenuItem value="Software en la práctica">Software en la práctica</MenuItem>
-                  </TextField>
-                )}
-              />
-
-              {/* Botón de envío */}
-              <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-                <Button 
-                  type="submit" 
-                  variant="contained" 
+              <Box sx={{ pt: 2, display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  type="submit"
+                  variant="contained"
                   size="large"
-                  sx={{ textTransform: "none", px: 4, borderRadius: 2, width: { xs: "100%", sm: "auto" } }}
+                  disabled={!isValid || !isDirty}
+                  sx={{
+                    textTransform: "none",
+                    px: 4,
+                    borderRadius: 2,
+                    width: { xs: "100%", sm: "auto" },
+                  }}
                 >
                   Guardar Cambios
                 </Button>
               </Box>
-
             </Stack>
           </Box>
         </CardContent>

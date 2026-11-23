@@ -20,6 +20,7 @@ import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
 import "./recovery.css";
+import ProfileForm from "./components/ProfileForm.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -242,6 +243,20 @@ export default function App() {
                   </CardContent>
                 </Card>
               </Container>
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/mi-perfil"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <ProfileForm />
             </Box>
           )
         }
