@@ -10,19 +10,26 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Snackbar,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { profileSchema } from "../validations/profileSchema";
-import { getMyProfile } from "../services/profileService";
+import { getMyProfile, updateMyProfile } from "../services/profileService";
 
 export default function ProfileForm() {
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [readonlyMeta, setReadonlyMeta] = useState({
     roles: [],
     especialidades: [],
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    severity: "success",
+    message: "",
   });
 
   const {
@@ -81,9 +88,68 @@ export default function ProfileForm() {
     };
   }, [reset]);
 
-  // En HU-10.4 conectaremos aquí el PATCH y los Snackbars
-  const onSubmit = (formData) => {
-    console.log("Datos listos para PATCH (HU-10.4):", formData);
+  const handleCloseSnackbar = (_, reason) => {
+    if (reason === "clickaway") return;
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
+
+  const onSubmit = async (formData) => {
+    setSaving(true);
+    try {
+      const updated = await updateMyProfile(formData);
+
+      const syncedValues = {
+        nombres: updated?.nombres ?? formData.nombres,
+        apellidos: updated?.apellidos ?? formData.apellidos,
+        correo: updated?.correo ?? updated?.email ?? formData.correo,
+        afiliacion: updated?.afiliacion ?? formData.afiliacion,
+        pais: updated?.pais ?? formData.pais,
+      };
+
+      // Reinicia el estado dirty con los valores ya guardados
+      reset(syncedValues);
+
+      // Sincroniza el nombre/correo mostrado en LocalStorage si existe
+      try {
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+        if (storedUser) {
+          const updatedUser = {
+            ...storedUser,
+            nombres: syncedValues.nombres,
+            apellidos: syncedValues.apellidos,
+            nombre: `${syncedValues.nombres} ${syncedValues.apellidos}`.trim(),
+            correo: syncedValues.correo,
+            email: syncedValues.correo,
+          };
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+        }
+      } catch {
+        // Ignora errores de parseo en localStorage
+      }
+
+      setSnackbar({
+        open: true,
+        severity: "success",
+        message: "Tus datos personales y de afiliación se actualizaron correctamente.",
+      });
+    } catch (err) {
+      const responseData = err.response?.data;
+      const errorMsg =
+        responseData?.detail ||
+        responseData?.message ||
+        (responseData && typeof responseData === "object"
+          ? Object.values(responseData).flat().join(" ")
+          : null) ||
+        "Ocurrió un error al guardar los cambios. Intenta nuevamente.";
+
+      setSnackbar({
+        open: true,
+        severity: "error",
+        message: errorMsg,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loadingProfile) {
@@ -169,6 +235,7 @@ export default function ProfileForm() {
                     {...field}
                     fullWidth
                     required
+                    disabled={saving}
                     label="Nombres"
                     error={!!errors.nombres}
                     helperText={errors.nombres?.message}
@@ -184,6 +251,7 @@ export default function ProfileForm() {
                     {...field}
                     fullWidth
                     required
+                    disabled={saving}
                     label="Apellidos"
                     error={!!errors.apellidos}
                     helperText={errors.apellidos?.message}
@@ -199,6 +267,7 @@ export default function ProfileForm() {
                     {...field}
                     fullWidth
                     required
+                    disabled={saving}
                     type="email"
                     label="Correo Electrónico"
                     error={!!errors.correo}
@@ -219,6 +288,7 @@ export default function ProfileForm() {
                     {...field}
                     fullWidth
                     required
+                    disabled={saving}
                     label="Institución / Universidad"
                     error={!!errors.afiliacion}
                     helperText={errors.afiliacion?.message}
@@ -234,6 +304,7 @@ export default function ProfileForm() {
                     {...field}
                     fullWidth
                     required
+                    disabled={saving}
                     label="País"
                     error={!!errors.pais}
                     helperText={errors.pais?.message}
@@ -246,7 +317,8 @@ export default function ProfileForm() {
                   type="submit"
                   variant="contained"
                   size="large"
-                  disabled={!isValid || !isDirty}
+                  disabled={!isValid || !isDirty || saving}
+                  startIcon={saving ? <CircularProgress size={18} color="inherit" /> : null}
                   sx={{
                     textTransform: "none",
                     px: 4,
@@ -254,13 +326,29 @@ export default function ProfileForm() {
                     width: { xs: "100%", sm: "auto" },
                   }}
                 >
-                  Guardar Cambios
+                  {saving ? "Guardando..." : "Guardar Cambios"}
                 </Button>
               </Box>
             </Stack>
           </Box>
         </CardContent>
       </Card>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4500}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
