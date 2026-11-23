@@ -7,7 +7,6 @@ const LOGOUT_ENDPOINT = import.meta.env.VITE_LOGOUT_ENDPOINT || "/api/auth/logou
 export const apiClient = axios.create({
   baseURL: API_URL,
   timeout: 10000,
-  withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -86,6 +85,13 @@ apiClient.interceptors.request.use(
     const role = activeRole || localStorage.getItem("active_role");
     if (role) {
       config.headers["X-Active-Role"] = role;
+    }
+    const isAuthRoute = config.url?.includes("/auth/login") || config.url?.includes("/auth/register");
+    if (role && !isAuthRoute) {
+      config.headers["X-Active-Role"] = role;
+    } else {
+      delete config.headers["X-Active-Role"];
+      delete apiClient.defaults.headers.common["X-Active-Role"];
     }
     return config;
   },

@@ -58,40 +58,55 @@ function AdminUsersDirectorySection() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState({
+    search: "",
+    rol: "TODOS",
+    activo: "TODOS",
+  });
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.get("http://127.0.0.1:8000/api/usuarios/", {
-        withCredentials: true, 
-          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "X-Rol-Activo": activeRole || localStorage.getItem("active_role"),
-  },
-});
-      const { data } = await axios.get(`${API_URL}/api/usuarios/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-Rol-Activo": activeRole,
-        },
-      });
-      setUsers(Array.isArray(data) ? data : data.results || []);
-    } catch (err) {
-      setError(
-        err.response?.data?.detail ||
-          "No se pudo cargar el directorio de usuarios."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [activeRole]);
+  const fetchUsers = useCallback(
+    async (signal) => {
+      if (!hasActiveRole("ADMIN")) return;
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const token = localStorage.getItem("access_token");
+        const params = {};
+
+        if (filters.search.trim()) params.search = filters.search.trim();
+        if (filters.rol !== "TODOS") params.rol = filters.rol;
+        if (filters.activo !== "TODOS") params.activo = filters.activo;
+
+        const { data } = await axios.get(`${API_URL}/api/usuarios/`, {
+          params,
+          signal,
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "X-Rol-Activo": activeRole || localStorage.getItem("active_role"),
+          },
+        });
+
+        setUsers(Array.isArray(data) ? data : data?.results || []);
+      } catch (err) {
+        if (axios.isCancel(err) || err.name === "CanceledError") return;
+        setError(
+          err.response?.data?.detail ||
+            "No se pudo cargar el directorio de usuarios."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeRole, hasActiveRole, filters]
+  );
 
   useEffect(() => {
-    if (hasActiveRole("ADMIN")) {
-      fetchUsers();
-    }
-  }, [hasActiveRole, fetchUsers]);
+    const controller = new AbortController();
+    fetchUsers(controller.signal);
+    return () => controller.abort();
+  }, [fetchUsers]);
 
   if (!hasActiveRole("ADMIN")) return null;
 
@@ -101,7 +116,9 @@ function AdminUsersDirectorySection() {
         users={users}
         loading={loading}
         error={error}
-        onRefresh={fetchUsers}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onRefresh={() => fetchUsers()}
       />
     </Box>
   );
