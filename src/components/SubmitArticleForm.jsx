@@ -3,6 +3,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Alert,
+  AlertTitle,
   Box,
   Button,
   Card,
@@ -17,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import LockClockIcon from "@mui/icons-material/LockClock";
 import SendIcon from "@mui/icons-material/Send";
 import PdfDropzoneField from "./PdfDropzoneField";
 import {
@@ -27,9 +29,11 @@ import {
 } from "../validations/articleSchema";
 import {
   createArticleProposal,
+  getActiveCallConfig,
   getThematicLines,
   uploadArticleInitialPdf,
 } from "../services/articleService";
+import { useModificationWindow } from "../hooks/useModificationWindow";
 
 export const LINEAS_TEMATICAS_OFICIALES = [
   { id: 1, nombre: "Sistemas Inteligentes" },
@@ -39,16 +43,27 @@ export const LINEAS_TEMATICAS_OFICIALES = [
   { id: 5, nombre: "Software en la práctica" },
 ];
 
-export default function SubmitArticleForm({ onCancel, onSuccess }) {
+export default function SubmitArticleForm({
+  onCancel,
+  onSuccess,
+  initialArticle = null,
+  callConfig: externalCallConfig = null,
+}) {
   const [thematicLines, setThematicLines] = useState(
     LINEAS_TEMATICAS_OFICIALES
   );
+  const [callConfig, setCallConfig] = useState(externalCallConfig);
   const [keywordInput, setKeywordInput] = useState("");
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [pdfError, setPdfError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null);
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const { isLocked, reason } = useModificationWindow(
+    initialArticle,
+    callConfig
+  );
 
   const {
     control,
@@ -61,10 +76,17 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
     resolver: zodResolver(articleSchema),
     mode: "onChange",
     defaultValues: {
-      titulo: "",
-      linea_tematica: "",
-      resumen: "",
-      palabras_clave: [],
+      titulo: initialArticle?.titulo || "",
+      linea_tematica:
+        typeof initialArticle?.linea_tematica === "object"
+          ? initialArticle?.linea_tematica?.id ?? ""
+          : initialArticle?.linea_tematica ?? "",
+      resumen: initialArticle?.resumen || "",
+      palabras_clave: Array.isArray(initialArticle?.palabras_clave)
+        ? initialArticle.palabras_clave
+            .map((kw) => (typeof kw === "string" ? kw : kw?.nombre || ""))
+            .filter(Boolean)
+        : [],
     },
   });
 
@@ -74,7 +96,25 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
   const isOverWordLimit = wordCount > MAX_ABSTRACT_WORDS;
 
   useEffect(() => {
+    if (!initialArticle) return;
+    reset({
+      titulo: initialArticle.titulo || "",
+      linea_tematica:
+        typeof initialArticle.linea_tematica === "object"
+          ? initialArticle.linea_tematica?.id ?? ""
+          : initialArticle.linea_tematica ?? "",
+      resumen: initialArticle.resumen || "",
+      palabras_clave: Array.isArray(initialArticle.palabras_clave)
+        ? initialArticle.palabras_clave
+            .map((kw) => (typeof kw === "string" ? kw : kw?.nombre || ""))
+            .filter(Boolean)
+        : [],
+    });
+  }, [initialArticle, reset]);
+
+  useEffect(() => {
     let active = true;
+
     getThematicLines()
       .then((lines) => {
         if (active && Array.isArray(lines) && lines.length > 0) {
@@ -84,12 +124,22 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
       .catch(() => {
         // Mantiene el catálogo oficial local como respaldo
       });
+
+    if (!externalCallConfig) {
+      getActiveCallConfig().then((cfg) => {
+        if (active && cfg) setCallConfig(cfg);
+      });
+    } else {
+      setCallConfig(externalCallConfig);
+    }
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [externalCallConfig]);
 
   const handleAddKeyword = (rawValue) => {
+    if (isLocked || isSubmitting) return;
     const clean = rawValue.replace(/,/g, "").trim();
     if (!clean) return;
 
@@ -106,6 +156,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
   };
 
   const handleKeywordKeyDown = (event) => {
+    if (isLocked || isSubmitting) return;
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       handleAddKeyword(keywordInput);
@@ -113,6 +164,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
   };
 
   const handleDeleteKeyword = (keywordToDelete) => {
+    if (isLocked || isSubmitting) return;
     setValue(
       "palabras_clave",
       palabrasClave.filter((item) => item !== keywordToDelete),
@@ -121,6 +173,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
   };
 
   const handlePdfSelect = (file) => {
+    if (isLocked || isSubmitting) return;
     const validationError = validatePdfFile(file);
     if (validationError) {
       setPdfError(validationError);
@@ -132,12 +185,15 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
   };
 
   const handlePdfRemove = () => {
+    if (isLocked || isSubmitting) return;
     setSelectedPdf(null);
     setPdfError("");
     setUploadProgress(null);
   };
 
   const onSubmit = async (formData) => {
+    if (isLocked) return;
+
     setServerError("");
     setSuccessMessage("");
 
@@ -187,6 +243,8 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
     }
   };
 
+  const inputsDisabled = isLocked || isSubmitting;
+
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
       <Card
@@ -220,7 +278,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                 Postulación de Ponencia
               </Typography>
               <Typography variant="h5" fontWeight={700} color="text.primary">
-                Proponer Nuevo Artículo
+                {initialArticle ? "Editar Artículo" : "Proponer Nuevo Artículo"}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 Registra los metadatos principales, selecciona la línea temática y adjunta tu manuscrito en PDF.
@@ -228,6 +286,19 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
             </Box>
 
             <Divider />
+
+            {isLocked && (
+              <Alert
+                severity="warning"
+                icon={<LockClockIcon />}
+                sx={{ borderRadius: 2 }}
+              >
+                <AlertTitle sx={{ fontWeight: 700 }}>
+                  Convocatoria cerrada / Plazo de modificación finalizado
+                </AlertTitle>
+                {reason}
+              </Alert>
+            )}
 
             {serverError && <Alert severity="error">{serverError}</Alert>}
             {successMessage && <Alert severity="success">{successMessage}</Alert>}
@@ -244,13 +315,14 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                       {...field}
                       fullWidth
                       required
+                      disabled={inputsDisabled}
                       id="articulo-titulo"
                       label="Título del artículo"
                       placeholder="Ej. Arquitectura basada en microservicios para sistemas académicos"
                       error={Boolean(errors.titulo)}
                       helperText={
                         errors.titulo?.message ||
-                        `${field.value.length}/250 caracteres`
+                        `${(field.value || "").length}/250 caracteres`
                       }
                     />
                   )}
@@ -266,6 +338,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                       select
                       fullWidth
                       required
+                      disabled={inputsDisabled}
                       id="articulo-linea-tematica"
                       label="Línea temática"
                       error={Boolean(errors.linea_tematica)}
@@ -296,6 +369,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                         multiline
                         minRows={5}
                         maxRows={10}
+                        disabled={inputsDisabled}
                         id="articulo-resumen"
                         label="Resumen (Abstract)"
                         placeholder="Describe el objetivo, metodología y principales aportes del artículo..."
@@ -331,6 +405,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                 <Box>
                   <TextField
                     fullWidth
+                    disabled={inputsDisabled}
                     id="articulo-palabras-clave"
                     label="Palabras clave"
                     placeholder="Escribe una palabra clave y presiona Enter o coma (,)"
@@ -340,8 +415,10 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                     onBlur={() => handleAddKeyword(keywordInput)}
                     error={Boolean(errors.palabras_clave)}
                     helperText={
-                      errors.palabras_clave?.message ||
-                      "Agrega términos relevantes separados por Enter o coma."
+                      isLocked
+                        ? "No se pueden agregar ni eliminar palabras clave fuera de plazo."
+                        : errors.palabras_clave?.message ||
+                          "Agrega términos relevantes separados por Enter o coma."
                     }
                   />
 
@@ -361,7 +438,12 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                           color="primary"
                           variant="outlined"
                           size="small"
-                          onDelete={() => handleDeleteKeyword(kw)}
+                          disabled={inputsDisabled}
+                          onDelete={
+                            inputsDisabled
+                              ? undefined
+                              : () => handleDeleteKeyword(kw)
+                          }
                         />
                       ))}
                     </Box>
@@ -373,7 +455,12 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                   file={selectedPdf}
                   error={pdfError}
                   uploadProgress={uploadProgress}
-                  disabled={isSubmitting}
+                  disabled={inputsDisabled}
+                  helperText={
+                    isLocked
+                      ? "La carga o reemplazo del documento PDF está deshabilitada tras el cierre."
+                      : "Arrastra tu manuscrito en formato PDF o haz clic para seleccionarlo (máx. 10 MB)."
+                  }
                   onFileSelect={handlePdfSelect}
                   onFileRemove={handlePdfRemove}
                 />
@@ -401,10 +488,12 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                     type="submit"
                     variant="contained"
                     size="large"
-                    disabled={!isValid || !selectedPdf || isSubmitting}
+                    disabled={isLocked || !isValid || !selectedPdf || isSubmitting}
                     endIcon={
                       isSubmitting ? (
                         <CircularProgress size={18} color="inherit" />
+                      ) : isLocked ? (
+                        <LockClockIcon />
                       ) : (
                         <SendIcon />
                       )
@@ -416,7 +505,11 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                       bgcolor: "#2859d8",
                     }}
                   >
-                    {isSubmitting ? "Registrando..." : "Registrar propuesta"}
+                    {isLocked
+                      ? "Plazo de modificación cerrado"
+                      : isSubmitting
+                      ? "Registrando..."
+                      : "Registrar propuesta"}
                   </Button>
                 </Stack>
               </Stack>

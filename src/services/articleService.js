@@ -10,6 +10,14 @@ export async function createArticleProposal(payload) {
   return data;
 }
 
+export async function getActiveCallConfig() {
+  try {
+    const { data } = await apiClient.get("/api/conferencias/vigente/");
+    return data;
+  } catch {
+    return null;
+  }
+}
 export async function uploadArticleInitialPdf(articleId, pdfFile, onProgress) {
   const formData = new FormData();
   formData.append("archivo", pdfFile);
