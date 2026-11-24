@@ -34,3 +34,14 @@ export async function uploadArticleInitialPdf(articleId, pdfFile, onProgress) {
 
   return data;
 }
+
+export async function getMyArticles(params = {}) {
+  const cleanParams = {};
+  if (params.estado) cleanParams.estado = params.estado;
+  if (params.linea_tematica) cleanParams.linea_tematica = params.linea_tematica;
+
+  const { data } = await apiClient.get("/api/articulos/mis-articulos/", {
+    params: cleanParams,
+  });
+  return Array.isArray(data) ? data : data?.results || [];
+}
