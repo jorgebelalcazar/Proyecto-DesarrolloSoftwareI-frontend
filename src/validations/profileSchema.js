@@ -1,11 +1,29 @@
 import { z } from "zod";
 
 export const profileSchema = z.object({
-  nombreCompleto: z.string().min(3, "El nombre completo es requerido"),
-  email: z.string().email("Correo electrónico inválido"),
-  telefono: z.string().min(7, "Número de teléfono inválido"),
-  institucion: z.string().min(2, "La institución o universidad es requerida"),
-  facultad: z.string().min(2, "La facultad o departamento es requerido"),
-  pais: z.string().min(2, "El país es requerido"),
-  lineaTematica: z.string().min(2, "Selecciona una línea temática"),
+  nombres: z
+    .string()
+    .trim()
+    .min(1, "Los nombres son obligatorios")
+    .min(2, "Debe tener al menos 2 caracteres"),
+  apellidos: z
+    .string()
+    .trim()
+    .min(1, "Los apellidos son obligatorios")
+    .min(2, "Debe tener al menos 2 caracteres"),
+  correo: z
+    .string()
+    .trim()
+    .min(1, "El correo electrónico es obligatorio")
+    .email("Correo electrónico inválido"),
+  afiliacion: z
+    .string()
+    .trim()
+    .min(1, "La afiliación institucional es obligatoria")
+    .min(2, "Ingresa una institución o universidad válida"),
+  pais: z
+    .string()
+    .trim()
+    .min(1, "El país es obligatorio")
+    .min(2, "Ingresa un país válido"),
 });

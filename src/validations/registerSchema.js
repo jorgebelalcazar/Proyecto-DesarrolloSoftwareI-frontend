@@ -7,6 +7,10 @@ export const registerSchema = z
       .trim()
       .min(1, "El nombre completo es obligatorio")
       .min(3, "Debe tener al menos 3 caracteres"),
+    apellidos: z
+      .string()
+      .trim()
+      .min(1, "Los apellidos son obligatorios"),
     email: z
       .string()
       .trim()
@@ -29,9 +33,9 @@ export const registerSchema = z
     confirmPassword: z
       .string()
       .min(1, "Debes confirmar la contraseña"),
-    recaptchaToken: z
-      .string()
-      .min(1, "Por favor completa la verificación reCAPTCHA"),
+    aceptaTratamientoDatos: z
+      .boolean()
+      .refine((acepta) => acepta, "Debes aceptar el tratamiento de datos personales"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     path: ["confirmPassword"],
