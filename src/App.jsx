@@ -22,6 +22,7 @@ import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
 import EditUserDialog from "./components/EditUserDialog.jsx";
+import SubmitArticleForm from "./components/SubmitArticleForm.jsx";
 import { deactivateUserByAdmin } from "./services/userAdminService";
 import "./recovery.css";
 
@@ -243,6 +244,11 @@ export default function App() {
                               key={opcion}
                               variant="outlined"
                               size="small"
+                              onClick={() => {
+                                if (opcion === "Enviar nueva ponencia") {
+                                  navigate("/articulos/nuevo");
+                                }
+                              }}
                               sx={{ textTransform: "none" }}
                             >
                               {opcion}
@@ -297,6 +303,20 @@ export default function App() {
             <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
               <Navbar />
               <ProfileForm />
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/articulos/nuevo"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <SubmitArticleForm onCancel={() => navigate("/")} />
             </Box>
           )
         }
