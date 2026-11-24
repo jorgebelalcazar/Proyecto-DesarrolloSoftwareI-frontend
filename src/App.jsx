@@ -10,7 +10,7 @@ import {
   Container,
   Stack,
   Typography,
-  Snackbar
+  Snackbar,
 } from "@mui/material";
 import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
@@ -22,6 +22,7 @@ import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
 import EditUserDialog from "./components/EditUserDialog.jsx";
+import { deactivateUserByAdmin } from "./services/userAdminService";
 import "./recovery.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -102,19 +103,6 @@ function AdminUsersDirectorySection() {
           err.response?.data?.detail ||
             "No se pudo cargar el directorio de usuarios."
         );
-
-        /*setUsers([
-          {
-            id: 101,
-            nombres: "Carlos Enrique",
-            apellidos: "Delgado",
-            correo: "carlos.delgado@correounivalle.edu.co",
-            afiliacion: "Universidad del Valle",
-            pais: "Colombia",
-            roles: ["COMITE"],
-            especialidades: [{ id: 4, nombre: "Sistemas de Software" }],
-          },
-        ]);*/
       } finally {
         setLoading(false);
       }
@@ -140,6 +128,11 @@ function AdminUsersDirectorySection() {
         onFiltersChange={setFilters}
         onRefresh={() => fetchUsers()}
         onEditUser={(selectedUser) => setEditingUser(selectedUser)}
+        onDeactivateUser={async (userId) => {
+          await deactivateUserByAdmin(userId);
+          setSuccessMessage("Usuario dado de baja correctamente.");
+          fetchUsers();
+        }}
       />
 
       <EditUserDialog
