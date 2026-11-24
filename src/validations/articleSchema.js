@@ -1,11 +1,37 @@
 import { z } from "zod";
 
 export const MAX_ABSTRACT_WORDS = 300;
+export const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export function countWords(text = "") {
   const trimmed = text.trim();
   if (!trimmed) return 0;
   return trimmed.split(/\s+/).length;
+}
+
+export function validatePdfFile(file) {
+  if (!file) {
+    return "Debes adjuntar el manuscrito en formato PDF.";
+  }
+
+  const hasPdfExtension = file.name?.toLowerCase().endsWith(".pdf");
+  const hasPdfMime =
+    file.type === "application/pdf" || file.type === "";
+
+  if (!hasPdfExtension || !hasPdfMime) {
+    return "Formato inválido: solo se permiten archivos con extensión .pdf.";
+  }
+
+  if (file.size <= 0) {
+    return "El archivo PDF seleccionado está vacío.";
+  }
+
+  if (file.size > MAX_PDF_SIZE_BYTES) {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+    return `El archivo pesa ${sizeMb} MB y supera el límite máximo permitido de 10 MB.`;
+  }
+
+  return null;
 }
 
 export const articleSchema = z.object({

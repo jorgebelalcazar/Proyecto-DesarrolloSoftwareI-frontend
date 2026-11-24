@@ -18,14 +18,17 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SendIcon from "@mui/icons-material/Send";
+import PdfDropzoneField from "./PdfDropzoneField";
 import {
   articleSchema,
   countWords,
   MAX_ABSTRACT_WORDS,
+  validatePdfFile,
 } from "../validations/articleSchema";
 import {
   createArticleProposal,
   getThematicLines,
+  uploadArticleInitialPdf,
 } from "../services/articleService";
 
 export const LINEAS_TEMATICAS_OFICIALES = [
@@ -41,6 +44,9 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
     LINEAS_TEMATICAS_OFICIALES
   );
   const [keywordInput, setKeywordInput] = useState("");
+  const [selectedPdf, setSelectedPdf] = useState(null);
+  const [pdfError, setPdfError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -67,7 +73,6 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
   const wordCount = countWords(resumenValue);
   const isOverWordLimit = wordCount > MAX_ABSTRACT_WORDS;
 
-  // Intenta sincronizar los IDs reales desde el backend si el endpoint está disponible
   useEffect(() => {
     let active = true;
     getThematicLines()
@@ -115,9 +120,32 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
     );
   };
 
+  const handlePdfSelect = (file) => {
+    const validationError = validatePdfFile(file);
+    if (validationError) {
+      setPdfError(validationError);
+      setSelectedPdf(null);
+      return;
+    }
+    setPdfError("");
+    setSelectedPdf(file);
+  };
+
+  const handlePdfRemove = () => {
+    setSelectedPdf(null);
+    setPdfError("");
+    setUploadProgress(null);
+  };
+
   const onSubmit = async (formData) => {
     setServerError("");
     setSuccessMessage("");
+
+    const validationError = validatePdfFile(selectedPdf);
+    if (validationError) {
+      setPdfError(validationError);
+      return;
+    }
 
     const payload = {
       titulo: formData.titulo.trim(),
@@ -128,17 +156,33 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
 
     try {
       const created = await createArticleProposal(payload);
-      setSuccessMessage("¡Artículo postulado exitosamente!");
+      const articleId = created?.id || created?.articulo_id;
+
+      if (articleId && selectedPdf) {
+        setUploadProgress(0);
+        await uploadArticleInitialPdf(articleId, selectedPdf, (percent) => {
+          setUploadProgress(percent);
+        });
+      }
+
+      setSuccessMessage(
+        "¡Artículo postulado y manuscrito PDF cargado exitosamente!"
+      );
       reset();
       setKeywordInput("");
+      setSelectedPdf(null);
+      setPdfError("");
+      setUploadProgress(null);
       onSuccess?.(created);
     } catch (err) {
+      setUploadProgress(null);
       const apiDetail =
         err.response?.data?.detail ||
+        err.response?.data?.archivo?.[0] ||
         err.response?.data?.titulo?.[0] ||
         err.response?.data?.resumen?.[0] ||
         err.response?.data?.linea_tematica?.[0] ||
-        "No se pudo registrar la propuesta del artículo. Verifica tu conexión e intenta nuevamente.";
+        "No se pudo completar el registro de la propuesta o la carga del PDF.";
       setServerError(apiDetail);
     }
   };
@@ -179,7 +223,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                 Proponer Nuevo Artículo
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Registra los metadatos principales y selecciona la línea temática a la que se postula tu trabajo.
+                Registra los metadatos principales, selecciona la línea temática y adjunta tu manuscrito en PDF.
               </Typography>
             </Box>
 
@@ -188,7 +232,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
             {serverError && <Alert severity="error">{serverError}</Alert>}
             {successMessage && <Alert severity="success">{successMessage}</Alert>}
 
-            {/* Formulario de Metadatos */}
+            {/* Formulario de Metadatos y PDF */}
             <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
               <Stack spacing={3}>
                 {/* 1. Título del artículo */}
@@ -324,6 +368,16 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                   )}
                 </Box>
 
+                {/* 5. Zona Drag & Drop con filtro cliente <= 10 MB y barra de progreso */}
+                <PdfDropzoneField
+                  file={selectedPdf}
+                  error={pdfError}
+                  uploadProgress={uploadProgress}
+                  disabled={isSubmitting}
+                  onFileSelect={handlePdfSelect}
+                  onFileRemove={handlePdfRemove}
+                />
+
                 {/* Acciones del formulario */}
                 <Stack
                   direction={{ xs: "column", sm: "row" }}
@@ -347,7 +401,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                     type="submit"
                     variant="contained"
                     size="large"
-                    disabled={!isValid || isSubmitting}
+                    disabled={!isValid || !selectedPdf || isSubmitting}
                     endIcon={
                       isSubmitting ? (
                         <CircularProgress size={18} color="inherit" />
