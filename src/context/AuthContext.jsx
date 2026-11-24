@@ -35,9 +35,14 @@ export function AuthProvider({ children }) {
         user: null,
         roles: [],
         activeRole: null,
+
         /*user: { nombre: "Usuario Prueba", email: "prueba@correo.com" }, //Usuario de prueba, descomentar para probar el botón logout
         roles: ["AUTOR"],
-        activeRole: "AUTOR",*/
+        activeRole: "AUTOR",
+       
+        user: { nombre: "Admin Prueba", email: "admin@correo.com" }, // Usuario admin de prueba
+        roles: ["ADMIN", "COMITE"],
+        activeRole: "ADMIN",*/
     });
 
     useEffect(() => {
