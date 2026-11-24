@@ -4,6 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Alert,
+  AlertTitle,
   Box,
   Button,
   Card,
@@ -18,6 +19,7 @@ import {
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import LockClockIcon from "@mui/icons-material/LockClock";
 import SaveIcon from "@mui/icons-material/Save";
 import SendIcon from "@mui/icons-material/Send";
 import PdfDropzoneField from "./PdfDropzoneField";
@@ -29,11 +31,13 @@ import {
 } from "../validations/articleSchema";
 import {
   createArticleProposal,
+  getActiveCallConfig,
   getArticleById,
   getThematicLines,
   updateArticleMetadata,
   uploadArticleInitialPdf,
 } from "../services/articleService";
+import { useModificationWindow } from "../hooks/useModificationWindow";
 
 export const LINEAS_TEMATICAS_OFICIALES = [
   { id: 1, nombre: "Sistemas Inteligentes" },
@@ -88,14 +92,18 @@ export default function SubmitArticleForm({
   onCancel,
   onSuccess,
   initialArticle = null,
+  callConfig: externalCallConfig = null,
 }) {
   const { id: routeArticleId } = useParams();
-  const targetArticleId = initialArticle?.id ?? routeArticleId ?? null;
+  const [loadedArticle, setLoadedArticle] = useState(initialArticle);
+  const activeArticle = initialArticle || loadedArticle;
+  const targetArticleId = activeArticle?.id ?? routeArticleId ?? null;
   const isEditMode = Boolean(targetArticleId);
 
   const [thematicLines, setThematicLines] = useState(
     LINEAS_TEMATICAS_OFICIALES
   );
+  const [callConfig, setCallConfig] = useState(externalCallConfig);
   const [keywordInput, setKeywordInput] = useState("");
   const [coauthorInput, setCoauthorInput] = useState("");
   const [selectedPdf, setSelectedPdf] = useState(null);
@@ -107,6 +115,11 @@ export default function SubmitArticleForm({
   const [editionBlockedReason, setEditionBlockedReason] = useState("");
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const { isLocked, reason } = useModificationWindow(
+    activeArticle,
+    callConfig
+  );
 
   const {
     control,
@@ -133,20 +146,35 @@ export default function SubmitArticleForm({
   const wordCount = countWords(resumenValue);
   const isOverWordLimit = wordCount > MAX_ABSTRACT_WORDS;
 
-  // Cargar catálogo de líneas temáticas
+  const inputsDisabled =
+    isLocked || isSubmitting || Boolean(editionBlockedReason);
+
+  // Cargar catálogo de líneas temáticas y configuración vigente
   useEffect(() => {
     let active = true;
+
     getThematicLines()
       .then((lines) => {
         if (active && Array.isArray(lines) && lines.length > 0) {
           setThematicLines(lines);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Mantiene el catálogo oficial local como respaldo
+      });
+
+    if (!externalCallConfig) {
+      getActiveCallConfig().then((cfg) => {
+        if (active && cfg) setCallConfig(cfg);
+      });
+    } else {
+      setCallConfig(externalCallConfig);
+    }
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [externalCallConfig]);
 
   // Precargar metadatos cuando está en modo edición (HU-20.3)
   useEffect(() => {
@@ -154,6 +182,7 @@ export default function SubmitArticleForm({
     let active = true;
 
     const applyArticleToForm = (articleData) => {
+      setLoadedArticle(articleData);
       reset(
         {
           titulo: articleData.titulo || "",
@@ -204,12 +233,13 @@ export default function SubmitArticleForm({
         if (active) setLoadingArticle(false);
       });
 
-        return () => {
+    return () => {
       active = false;
     };
   }, [initialArticle, isEditMode, reset, targetArticleId]);
 
   const handleAddKeyword = (rawValue) => {
+    if (inputsDisabled) return;
     const clean = rawValue.replace(/,/g, "").trim();
     if (!clean) return;
 
@@ -226,6 +256,7 @@ export default function SubmitArticleForm({
   };
 
   const handleKeywordKeyDown = (event) => {
+    if (inputsDisabled) return;
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       handleAddKeyword(keywordInput);
@@ -233,6 +264,7 @@ export default function SubmitArticleForm({
   };
 
   const handleDeleteKeyword = (keywordToDelete) => {
+    if (inputsDisabled) return;
     setValue(
       "palabras_clave",
       palabrasClave.filter((item) => item !== keywordToDelete),
@@ -241,6 +273,7 @@ export default function SubmitArticleForm({
   };
 
   const handleAddCoauthor = (rawValue) => {
+    if (inputsDisabled) return;
     const clean = rawValue.replace(/,/g, "").trim();
     if (!clean) return;
 
@@ -257,6 +290,7 @@ export default function SubmitArticleForm({
   };
 
   const handleCoauthorKeyDown = (event) => {
+    if (inputsDisabled) return;
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       handleAddCoauthor(coauthorInput);
@@ -264,6 +298,7 @@ export default function SubmitArticleForm({
   };
 
   const handleDeleteCoauthor = (coauthorToDelete) => {
+    if (inputsDisabled) return;
     setValue(
       "coautores",
       coautores.filter((item) => item !== coauthorToDelete),
@@ -272,6 +307,7 @@ export default function SubmitArticleForm({
   };
 
   const handlePdfSelect = (file) => {
+    if (inputsDisabled) return;
     const validationError = validatePdfFile(file);
     if (validationError) {
       setPdfError(validationError);
@@ -283,12 +319,15 @@ export default function SubmitArticleForm({
   };
 
   const handlePdfRemove = () => {
+    if (inputsDisabled) return;
     setSelectedPdf(null);
     setPdfError("");
     setUploadProgress(null);
   };
 
   const onSubmit = async (formData) => {
+    if (isLocked || Boolean(editionBlockedReason)) return;
+
     setServerError("");
     setSuccessMessage("");
 
@@ -369,8 +408,6 @@ export default function SubmitArticleForm({
     }
   };
 
-  const isFormDisabled = isSubmitting || Boolean(editionBlockedReason);
-
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
       <Card
@@ -393,7 +430,9 @@ export default function SubmitArticleForm({
                   onClick={onCancel}
                   sx={{ textTransform: "none", mb: 1, ml: -1 }}
                 >
-                  {isEditMode ? "Volver a Mis Artículos" : "Volver al panel principal"}
+                  {isEditMode
+                    ? "Volver a Mis Artículos"
+                    : "Volver al panel principal"}
                 </Button>
               )}
 
@@ -422,7 +461,20 @@ export default function SubmitArticleForm({
 
             <Divider />
 
-            {editionBlockedReason && (
+            {isLocked && (
+              <Alert
+                severity="warning"
+                icon={<LockClockIcon />}
+                sx={{ borderRadius: 2 }}
+              >
+                <AlertTitle sx={{ fontWeight: 700 }}>
+                  Convocatoria cerrada / Plazo de modificación finalizado
+                </AlertTitle>
+                {reason}
+              </Alert>
+            )}
+
+            {!isLocked && editionBlockedReason && (
               <Alert severity="warning">{editionBlockedReason}</Alert>
             )}
             {serverError && <Alert severity="error">{serverError}</Alert>}
@@ -451,7 +503,7 @@ export default function SubmitArticleForm({
                         {...field}
                         fullWidth
                         required
-                        disabled={isFormDisabled}
+                        disabled={inputsDisabled}
                         id="articulo-titulo"
                         label="Título del artículo"
                         placeholder="Ej. Arquitectura basada en microservicios para sistemas académicos"
@@ -474,7 +526,7 @@ export default function SubmitArticleForm({
                         select
                         fullWidth
                         required
-                        disabled={isFormDisabled}
+                        disabled={inputsDisabled}
                         id="articulo-linea-tematica"
                         label="Línea temática"
                         error={Boolean(errors.linea_tematica)}
@@ -505,7 +557,7 @@ export default function SubmitArticleForm({
                           multiline
                           minRows={5}
                           maxRows={10}
-                          disabled={isFormDisabled}
+                          disabled={inputsDisabled}
                           id="articulo-resumen"
                           label="Resumen (Abstract)"
                           placeholder="Describe el objetivo, metodología y principales aportes del artículo..."
@@ -541,7 +593,7 @@ export default function SubmitArticleForm({
                   <Box>
                     <TextField
                       fullWidth
-                      disabled={isFormDisabled}
+                      disabled={inputsDisabled}
                       id="articulo-palabras-clave"
                       label="Palabras clave"
                       placeholder="Escribe una palabra clave y presiona Enter o coma (,)"
@@ -551,8 +603,10 @@ export default function SubmitArticleForm({
                       onBlur={() => handleAddKeyword(keywordInput)}
                       error={Boolean(errors.palabras_clave)}
                       helperText={
-                        errors.palabras_clave?.message ||
-                        "Agrega términos relevantes separados por Enter o coma."
+                        isLocked
+                          ? "No se pueden agregar ni eliminar palabras clave fuera de plazo."
+                          : errors.palabras_clave?.message ||
+                            "Agrega términos relevantes separados por Enter o coma."
                       }
                     />
 
@@ -572,8 +626,12 @@ export default function SubmitArticleForm({
                             color="primary"
                             variant="outlined"
                             size="small"
-                            disabled={isFormDisabled}
-                            onDelete={() => handleDeleteKeyword(kw)}
+                            disabled={inputsDisabled}
+                            onDelete={
+                              inputsDisabled
+                                ? undefined
+                                : () => handleDeleteKeyword(kw)
+                            }
                           />
                         ))}
                       </Box>
@@ -584,7 +642,7 @@ export default function SubmitArticleForm({
                   <Box>
                     <TextField
                       fullWidth
-                      disabled={isFormDisabled}
+                      disabled={inputsDisabled}
                       id="articulo-coautores"
                       label="Coautores (opcional)"
                       placeholder="Escribe el nombre o correo del coautor y presiona Enter o coma (,)"
@@ -615,8 +673,12 @@ export default function SubmitArticleForm({
                             color="secondary"
                             variant="outlined"
                             size="small"
-                            disabled={isFormDisabled}
-                            onDelete={() => handleDeleteCoauthor(coauthor)}
+                            disabled={inputsDisabled}
+                            onDelete={
+                              inputsDisabled
+                                ? undefined
+                                : () => handleDeleteCoauthor(coauthor)
+                            }
                           />
                         ))}
                       </Box>
@@ -629,7 +691,12 @@ export default function SubmitArticleForm({
                       file={selectedPdf}
                       error={pdfError}
                       uploadProgress={uploadProgress}
-                      disabled={isSubmitting}
+                      disabled={inputsDisabled}
+                      helperText={
+                        isLocked
+                          ? "La carga o reemplazo del documento PDF está deshabilitada tras el cierre."
+                          : "Arrastra tu manuscrito en formato PDF o haz clic para seleccionarlo (máx. 10 MB)."
+                      }
                       onFileSelect={handlePdfSelect}
                       onFileRemove={handlePdfRemove}
                     />
@@ -659,13 +726,15 @@ export default function SubmitArticleForm({
                       variant="contained"
                       size="large"
                       disabled={
-                        isFormDisabled ||
+                        inputsDisabled ||
                         !isValid ||
                         (!isEditMode && !selectedPdf)
                       }
                       endIcon={
                         isSubmitting ? (
                           <CircularProgress size={18} color="inherit" />
+                        ) : isLocked ? (
+                          <LockClockIcon />
                         ) : isEditMode ? (
                           <SaveIcon />
                         ) : (
@@ -679,9 +748,11 @@ export default function SubmitArticleForm({
                         bgcolor: "#2859d8",
                       }}
                     >
-                      {isSubmitting
+                      {isLocked
+                        ? "Plazo de modificación cerrado"
+                        : isSubmitting
                         ? isEditMode
-                          ? "Guardando cambios..."
+                          ? "Guardando..."
                           : "Registrando..."
                         : isEditMode
                         ? "Guardar cambios"

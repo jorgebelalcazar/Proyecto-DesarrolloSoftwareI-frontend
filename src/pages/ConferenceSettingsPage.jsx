@@ -95,7 +95,7 @@ export default function ConferenceSettingsPage() {
             <Stack spacing={2}>
               <TextField label="Nombre de la conferencia" required {...register("nombre")} error={Boolean(errors.nombre)} helperText={errors.nombre?.message} />
               {camposFecha.map(([campo, etiqueta, tipo]) => (
-                <TextField key={campo} label={etiqueta} type={tipo} required {...register(campo)} error={Boolean(errors[campo])} helperText={errors[campo]?.message || (tipo === "datetime-local" ? "Zona horaria: America/Bogota" : "")} InputLabelProps={{ shrink: true }} inputProps={tipo === "datetime-local" ? { step: 60 } : undefined} />
+                <TextField key={campo} label={etiqueta} type={tipo} required {...register(campo)} error={Boolean(errors[campo])} helperText={errors[campo]?.message || (tipo === "datetime-local" ? "Zona horaria: America/Bogota" : "")} slotProps={{ inputLabel: { shrink: true }, htmlInput: tipo === "datetime-local" ? {step: 60} : undefined, }} />
               ))}
               <Button type="submit" variant="contained" size="large" disabled={isSubmitting}>
                 {isSubmitting ? <CircularProgress size={22} color="inherit" /> : "Guardar calendario"}

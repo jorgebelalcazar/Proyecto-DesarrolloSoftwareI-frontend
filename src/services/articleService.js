@@ -10,6 +10,15 @@ export async function createArticleProposal(payload) {
   return data;
 }
 
+export async function getActiveCallConfig() {
+  try {
+    const { data } = await apiClient.get("/api/conferencias/vigente/");
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export async function getArticleDetail(articleId) {
   const { data } = await apiClient.get(`/api/articulos/${articleId}/`);
   return data;
