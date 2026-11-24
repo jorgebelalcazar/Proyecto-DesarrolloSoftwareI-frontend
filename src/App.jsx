@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   Alert,
   Box,
@@ -7,6 +8,7 @@ import {
   Card,
   CardContent,
   Container,
+  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
@@ -14,10 +16,17 @@ import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
+import ProfileForm from "./components/ProfileForm.jsx";
+import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
+import EditUserDialog from "./components/EditUserDialog.jsx";
+import SubmitArticleForm from "./components/SubmitArticleForm.jsx";
+import { deactivateUserByAdmin } from "./services/userAdminService";
 import "./recovery.css";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const MENUS_POR_ROL = {
   AUTOR: ["Mis artículos", "Enviar nueva ponencia", "Estado de evaluaciones"],
@@ -45,6 +54,113 @@ function AuthScreen({ mostrarRegistro, setMostrarRegistro, startSession }) {
             : "¿Eres autor nuevo? Regístrate aquí"}
         </Button>
       </Box>
+    </Box>
+  );
+}
+
+function AdminUsersDirectorySection() {
+  const { activeRole, hasActiveRole } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [editingUser, setEditingUser] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [filters, setFilters] = useState({
+    search: "",
+    rol: "TODOS",
+    activo: "TODOS",
+  });
+
+  const canManageUsers = hasActiveRole(["ADMIN", "COMITE"]);
+
+  const fetchUsers = useCallback(
+    async (signal) => {
+      if (!canManageUsers) return;
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const token = localStorage.getItem("access_token");
+        const params = {};
+
+        if (filters.search.trim()) params.search = filters.search.trim();
+        if (filters.rol !== "TODOS") params.rol = filters.rol;
+        if (filters.activo !== "TODOS") params.estado = filters.activo;
+
+        const { data } = await axios.get(`${API_URL}/api/usuarios/`, {
+          params,
+          signal,
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "X-Rol-Activo": activeRole || localStorage.getItem("active_role"),
+          },
+        });
+
+        setUsers(Array.isArray(data) ? data : data?.results || []);
+      } catch (err) {
+        if (axios.isCancel(err) || err.name === "CanceledError") return;
+        setError(
+          err.response?.data?.detail ||
+            "No se pudo cargar el directorio de usuarios."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeRole, canManageUsers, filters]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchUsers(controller.signal);
+    return () => controller.abort();
+  }, [fetchUsers]);
+
+  if (!canManageUsers) return null;
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <UsersDirectoryTable
+        users={users}
+        loading={loading}
+        error={error}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onRefresh={() => fetchUsers()}
+        onEditUser={(selectedUser) => setEditingUser(selectedUser)}
+        onDeactivateUser={async (userId) => {
+          await deactivateUserByAdmin(userId);
+          setSuccessMessage("Usuario dado de baja correctamente.");
+          fetchUsers();
+        }}
+      />
+
+      <EditUserDialog
+        open={Boolean(editingUser)}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSaved={() => {
+          setSuccessMessage("Usuario actualizado correctamente.");
+          fetchUsers();
+        }}
+      />
+
+      <Snackbar
+        open={Boolean(successMessage)}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMessage("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setSuccessMessage("")}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
@@ -105,7 +221,7 @@ export default function App() {
             <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
               <Navbar />
 
-              <Container maxWidth="md" sx={{ py: 4 }}>
+              <Container maxWidth="lg" sx={{ py: 4 }}>
                 <Card elevation={1}>
                   <CardContent>
                     <Stack spacing={2.5}>
@@ -128,6 +244,11 @@ export default function App() {
                               key={opcion}
                               variant="outlined"
                               size="small"
+                              onClick={() => {
+                                if (opcion === "Enviar nueva ponencia") {
+                                  navigate("/articulos/nuevo");
+                                }
+                              }}
                               sx={{ textTransform: "none" }}
                             >
                               {opcion}
@@ -143,14 +264,19 @@ export default function App() {
                             de cuentas y parámetros del sistema.
                           </Alert>
                           <CreateUserDialogPreview />
+                          <AdminUsersDirectorySection />
                         </Stack>
                       )}
 
                       {hasActiveRole("COMITE") && (
-                        <Alert severity="success">
-                          Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
-                          revisión y aval de artículos.
-                        </Alert>
+                        <Stack spacing={2}>
+                          <Alert severity="success">
+                            Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
+                            revisión y aval de artículos.
+                          </Alert>
+                          <CreateUserDialogPreview />
+                          <AdminUsersDirectorySection />
+                        </Stack>
                       )}
 
                       {hasActiveRole("AUTOR") && (
@@ -163,6 +289,34 @@ export default function App() {
                   </CardContent>
                 </Card>
               </Container>
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/mi-perfil"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <ProfileForm />
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/articulos/nuevo"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <SubmitArticleForm onCancel={() => navigate("/")} />
             </Box>
           )
         }
