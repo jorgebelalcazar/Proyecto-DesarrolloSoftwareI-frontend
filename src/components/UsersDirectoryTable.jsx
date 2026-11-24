@@ -29,6 +29,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ClearIcon from "@mui/icons-material/Clear";
 import FilterAltOffIcon from "@mui/icons-material/FilterAltOff";
+import EditIcon from "@mui/icons-material/Edit";
 
 const ROLE_CHIP_CONFIG = {
   ADMIN: {
@@ -127,6 +128,7 @@ export default function UsersDirectoryTable({
   filters = { search: "", rol: "TODOS", activo: "TODOS" },
   onFiltersChange,
   onRefresh,
+  onEditUser,
 }) {
   // Estado local del input para aplicar debounce antes de disparar Axios
   const [searchInput, setSearchInput] = useState(filters.search || "");
@@ -376,13 +378,18 @@ export default function UsersDirectoryTable({
               <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>País</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 210 }}>Roles asignados</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 220 }}>Especialidades</TableCell>
+              {onEditUser && (
+                <TableCell align="right" sx={{ fontWeight: 700, minWidth: 110 }}>
+                  Acciones
+                </TableCell>
+              )}
             </TableRow>
           </TableHead>
 
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={onEditUser ? 7 : 6} align="center" sx={{ py: 6 }}>
                   <CircularProgress size={32} />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     Consultando usuarios...
@@ -391,7 +398,7 @@ export default function UsersDirectoryTable({
               </TableRow>
             ) : paginatedUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
+                <TableCell colSpan={onEditUser ? 7 : 6} align="center" sx={{ py: 5 }}>
                   <Typography variant="body1" color="text.secondary">
                     No se encontraron usuarios con los criterios seleccionados.
                   </Typography>
@@ -415,6 +422,21 @@ export default function UsersDirectoryTable({
                   <TableCell>{user.pais || "—"}</TableCell>
                   <TableCell>{renderRoles(user.roles)}</TableCell>
                   <TableCell>{renderEspecialidades(user.especialidades)}</TableCell>
+                  {onEditUser && (
+                    <TableCell align="right">
+                      <Tooltip title="Editar datos y roles">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon fontSize="small" />}
+                          onClick={() => onEditUser(user)}
+                          sx={{ textTransform: "none", borderRadius: 1.5 }}
+                        >
+                          Editar
+                        </Button>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

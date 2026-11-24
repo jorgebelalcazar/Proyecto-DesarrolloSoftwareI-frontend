@@ -10,6 +10,7 @@ import {
   Container,
   Stack,
   Typography,
+  Snackbar
 } from "@mui/material";
 import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
@@ -20,6 +21,7 @@ import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
+import EditUserDialog from "./components/EditUserDialog.jsx";
 import "./recovery.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -59,15 +61,19 @@ function AdminUsersDirectorySection() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [editingUser, setEditingUser] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
   const [filters, setFilters] = useState({
     search: "",
     rol: "TODOS",
     activo: "TODOS",
   });
 
+  const canManageUsers = hasActiveRole(["ADMIN", "COMITE"]);
+
   const fetchUsers = useCallback(
     async (signal) => {
-      if (!hasActiveRole("ADMIN")) return;
+      if (!canManageUsers) return;
 
       setLoading(true);
       setError("");
@@ -96,11 +102,24 @@ function AdminUsersDirectorySection() {
           err.response?.data?.detail ||
             "No se pudo cargar el directorio de usuarios."
         );
+
+        /*setUsers([
+          {
+            id: 101,
+            nombres: "Carlos Enrique",
+            apellidos: "Delgado",
+            correo: "carlos.delgado@correounivalle.edu.co",
+            afiliacion: "Universidad del Valle",
+            pais: "Colombia",
+            roles: ["COMITE"],
+            especialidades: [{ id: 4, nombre: "Sistemas de Software" }],
+          },
+        ]);*/
       } finally {
         setLoading(false);
       }
     },
-    [activeRole, hasActiveRole, filters]
+    [activeRole, canManageUsers, filters]
   );
 
   useEffect(() => {
@@ -109,7 +128,7 @@ function AdminUsersDirectorySection() {
     return () => controller.abort();
   }, [fetchUsers]);
 
-  if (!hasActiveRole("ADMIN")) return null;
+  if (!canManageUsers) return null;
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -120,7 +139,34 @@ function AdminUsersDirectorySection() {
         filters={filters}
         onFiltersChange={setFilters}
         onRefresh={() => fetchUsers()}
+        onEditUser={(selectedUser) => setEditingUser(selectedUser)}
       />
+
+      <EditUserDialog
+        open={Boolean(editingUser)}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSaved={() => {
+          setSuccessMessage("Usuario actualizado correctamente.");
+          fetchUsers();
+        }}
+      />
+
+      <Snackbar
+        open={Boolean(successMessage)}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMessage("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setSuccessMessage("")}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
@@ -230,6 +276,7 @@ export default function App() {
                             revisión y aval de artículos.
                           </Alert>
                           <CreateUserDialogPreview />
+                          <AdminUsersDirectorySection />
                         </Stack>
                       )}
 
