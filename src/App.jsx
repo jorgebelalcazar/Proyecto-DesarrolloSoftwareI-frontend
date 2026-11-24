@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   Container,
+  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
@@ -15,16 +16,18 @@ import UserDeactivationPreview from "./components/UserDeactivationPreview.jsx";
 import CoauthorsPreview from "./components/CoauthorsPreview.jsx";
 import ArticlesCatalog from "./components/ArticlesCatalog.jsx";
 import ArticlesCatalogPreview from "./components/ArticlesCatalogPreview.jsx";
-import ArticleDisablePanel from "./components/ArticleDisablePanel.jsx";
-import ArticleDisablePreview from "./components/ArticleDisablePreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
+import ProfileForm from "./components/ProfileForm.jsx";
+import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
-import { disableArticle, fetchArticles } from "./services/articlesService.js";
+import { fetchArticles } from "./services/articlesService.js";
 import "./recovery.css";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const MENUS_POR_ROL = {
   AUTOR: ["Mis artículos", "Enviar nueva ponencia", "Estado de evaluaciones"],
@@ -56,32 +59,21 @@ function AuthScreen({ mostrarRegistro, setMostrarRegistro, startSession }) {
   );
 }
 
-function CommitteeDisablePage() {
-  const { articleId } = useParams();
-
-  return (
-    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 6 } }}>
-      <ArticleDisablePanel
-        article={{ id: articleId, titulo: "Artículo seleccionado", autor: "", estado: "En revisión" }}
-        onDisable={disableArticle}
-      />
-    </Container>
-  );
-}
-
 export default function App() {
   const navigate = useNavigate();
   const { isAuthenticated, user, activeRole, startSession, hasActiveRole } = useAuth();
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
-
+  const [selectedArticleId, setSelectedArticleId] = useState(null);
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
   const isUsersPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
   const isCoauthorsPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
   const isArticlesPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
-  const isDisablePreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
 
   return (
     <Routes>
+      <Route path="/configuracion-conferencia" element={
+        !isAuthenticated || !user ? <Navigate to="/login" replace /> : hasActiveRole(["ADMIN", "COMITE"]) ? <><Navbar /><ConferenceSettingsPage /></> : <Navigate to="/" replace />
+      } />
       <Route
         path="/recuperacion"
         element={
@@ -156,19 +148,6 @@ export default function App() {
       />
 
       <Route
-        path="/articulos/:articleId/deshabilitar"
-        element={
-          isDisablePreview ? (
-            <ArticleDisablePreview />
-          ) : hasActiveRole("COMITE") ? (
-            <CommitteeDisablePage />
-          ) : (
-            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
-          )
-        }
-      />
-
-      <Route
         path="/"
         element={
           !isAuthenticated || !user ? (
@@ -177,7 +156,7 @@ export default function App() {
             <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
               <Navbar />
 
-              <Container maxWidth="md" sx={{ py: 4 }}>
+              <Container maxWidth="lg" sx={{ py: 4 }}>
                 <Card elevation={1}>
                   <CardContent>
                     <Stack spacing={2.5}>
@@ -200,6 +179,15 @@ export default function App() {
                               key={opcion}
                               variant="outlined"
                               size="small"
+                              onClick={() => {
+                                if (opcion === "Mis artículos") {
+                                  navigate("/mis-articulos");
+                                }else if (opcion === "Enviar nueva ponencia") {
+                                  navigate("/articulos/nuevo");
+                                } else if (opcion === "Configuración de eventos") {
+                                  navigate("/configuracion-conferencia");
+                                }
+                              }}
                               sx={{ textTransform: "none" }}
                             >
                               {opcion}
@@ -215,22 +203,15 @@ export default function App() {
                             de cuentas y parámetros del sistema.
                           </Alert>
                           <CreateUserDialogPreview />
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            onClick={() => navigate("/admin/usuarios")}
-                            sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                          >
-                            Gestión de bajas de usuarios
-                          </Button>
+                          <AdminUsersDirectorySection />
                         </Stack>
                       )}
 
                       {hasActiveRole("COMITE") && (
-                        <Stack spacing={1.5} alignItems="flex-start">
+                        <Stack spacing={2}>
                           <Alert severity="success">
                             Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
-                            revisión, aval de artículos y gestión de bajas.
+                            revisión y aval de artículos.
                           </Alert>
                           <Button
                             variant="outlined"
@@ -247,46 +228,85 @@ export default function App() {
                           >
                             Consultar catálogo de artículos
                           </Button>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            onClick={() => navigate("/articulos/ART-0264/deshabilitar")}
-                            sx={{ textTransform: "none" }}
-                          >
-                            Supervisar y deshabilitar artículo
-                          </Button>
                         </Stack>
-                      )}
-
-                      {hasActiveRole("ADMIN") && (
-                        <Button
-                          variant="outlined"
-                          onClick={() => navigate("/articulos/catalogo")}
-                          sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                        >
-                          Consultar catálogo de artículos
-                        </Button>
                       )}
 
                       {hasActiveRole("AUTOR") && (
-                        <Stack spacing={1.5} alignItems="flex-start">
-                          <Alert severity="info" variant="outlined">
-                            Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
-                            consultar tus artículos.
-                          </Alert>
-                          <Button
-                            variant="outlined"
-                            onClick={() => navigate("/articulos/coautores")}
-                            sx={{ textTransform: "none" }}
-                          >
-                            Editar coautores del artículo
-                          </Button>
-                        </Stack>
+                        <Alert severity="info" variant="outlined">
+                          Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
+                          consultar tus artículos.
+                        </Alert>
                       )}
                     </Stack>
                   </CardContent>
                 </Card>
               </Container>
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/mi-perfil"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <ProfileForm />
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/articulos/nuevo"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <SubmitArticleForm onCancel={() => navigate("/")} />
+            </Box>
+          )
+        }
+      />
+
+      <Route
+          path="/articulos/:id/editar"
+          element={
+            !isAuthenticated || !user ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+                <Navbar />
+                <SubmitArticleForm onCancel={() => navigate("/mis-articulos")} />
+              </Box>
+            )
+          }
+        />      
+
+      <Route
+        path="/mis-articulos"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <MyArticlesTable
+                onBack={() => navigate("/")}
+                onNewArticle={() => navigate("/articulos/nuevo")}
+                onSelectArticle={(article) => setSelectedArticleId(article.id)}
+                onEditArticle={(article) => navigate(`/articulos/${article.id}/editar`)}
+              />
+              <ArticleDetailModal
+                open={Boolean(selectedArticleId)}
+                articleId={selectedArticleId}
+                onClose={() => setSelectedArticleId(null)}
+              />
             </Box>
           )
         }

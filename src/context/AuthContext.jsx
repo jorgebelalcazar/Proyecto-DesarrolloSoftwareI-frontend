@@ -32,12 +32,18 @@ function normalizeUser(rawUser) {
 
 export function AuthProvider({ children }) {
     const [session, setSession] = useState({
+        
         user: null,
         roles: [],
         activeRole: null,
-        /*user: { nombre: "Usuario Prueba", email: "prueba@correo.com" }, //Usuario de prueba, descomentar para probar el botón logout
-        roles: ["AUTOR"],
-        activeRole: "AUTOR",*/
+        
+        //user: { nombre: "Usuario Prueba", email: "prueba@correo.com" }, //Usuario de prueba, descomentar para probar el botón logout
+        //roles: ["AUTOR"],
+        //activeRole: "AUTOR",
+        
+        //user: { nombre: "Admin Prueba", email: "admin@correo.com" }, // Usuario admin de prueba
+        //roles: ["ADMIN", "COMITE"],
+        //activeRole: "ADMIN",*/
     });
 
     useEffect(() => {
