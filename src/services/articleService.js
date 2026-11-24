@@ -50,3 +50,13 @@ export async function getMyArticles(params = {}) {
   });
   return Array.isArray(data) ? data : data?.results || [];
 }
+
+export async function getArticleById(articleId) {
+  const { data } = await apiClient.get(`/api/articulos/${articleId}/`);
+  return data;
+}
+
+export async function updateArticleMetadata(articleId, payload) {
+  const { data } = await apiClient.patch(`/api/articulos/${articleId}/`, payload);
+  return data;
+}
