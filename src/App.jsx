@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   Alert,
   Box,
@@ -7,22 +8,27 @@ import {
   Card,
   CardContent,
   Container,
+  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
 import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
-import UserDeactivationPreview from "./components/UserDeactivationPreview.jsx";
-import CoauthorsPreview from "./components/CoauthorsPreview.jsx";
-import ArticlesCatalog from "./components/ArticlesCatalog.jsx";
-import ArticlesCatalogPreview from "./components/ArticlesCatalogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
+import ProfileForm from "./components/ProfileForm.jsx";
+import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
-import { fetchArticles } from "./services/articlesService.js";
+import ConferenceSettingsPage from "./pages/ConferenceSettingsPage.jsx";
+import EditUserDialog from "./components/EditUserDialog.jsx";
+import SubmitArticleForm from "./components/SubmitArticleForm.jsx";
+import { deactivateUserByAdmin } from "./services/userAdminService";
+import MyArticlesTable from "./components/MyArticlesTable.jsx";
 import "./recovery.css";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const MENUS_POR_ROL = {
   AUTOR: ["Mis artículos", "Enviar nueva ponencia", "Estado de evaluaciones"],
@@ -54,18 +60,125 @@ function AuthScreen({ mostrarRegistro, setMostrarRegistro, startSession }) {
   );
 }
 
+function AdminUsersDirectorySection() {
+  const { activeRole, hasActiveRole } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [editingUser, setEditingUser] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [filters, setFilters] = useState({
+    search: "",
+    rol: "TODOS",
+    activo: "TODOS",
+  });
+
+  const canManageUsers = hasActiveRole(["ADMIN", "COMITE"]);
+
+  const fetchUsers = useCallback(
+    async (signal) => {
+      if (!canManageUsers) return;
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const token = localStorage.getItem("access_token");
+        const params = {};
+
+        if (filters.search.trim()) params.search = filters.search.trim();
+        if (filters.rol !== "TODOS") params.rol = filters.rol;
+        if (filters.activo !== "TODOS") params.estado = filters.activo;
+
+        const { data } = await axios.get(`${API_URL}/api/usuarios/`, {
+          params,
+          signal,
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "X-Rol-Activo": activeRole || localStorage.getItem("active_role"),
+          },
+        });
+
+        setUsers(Array.isArray(data) ? data : data?.results || []);
+      } catch (err) {
+        if (axios.isCancel(err) || err.name === "CanceledError") return;
+        setError(
+          err.response?.data?.detail ||
+            "No se pudo cargar el directorio de usuarios."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeRole, canManageUsers, filters]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchUsers(controller.signal);
+    return () => controller.abort();
+  }, [fetchUsers]);
+
+  if (!canManageUsers) return null;
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <UsersDirectoryTable
+        users={users}
+        loading={loading}
+        error={error}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onRefresh={() => fetchUsers()}
+        onEditUser={(selectedUser) => setEditingUser(selectedUser)}
+        onDeactivateUser={async (userId) => {
+          await deactivateUserByAdmin(userId);
+          setSuccessMessage("Usuario dado de baja correctamente.");
+          fetchUsers();
+        }}
+      />
+
+      <EditUserDialog
+        open={Boolean(editingUser)}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSaved={() => {
+          setSuccessMessage("Usuario actualizado correctamente.");
+          fetchUsers();
+        }}
+      />
+
+      <Snackbar
+        open={Boolean(successMessage)}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMessage("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setSuccessMessage("")}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+}
+
 export default function App() {
   const navigate = useNavigate();
   const { isAuthenticated, user, activeRole, startSession, hasActiveRole } = useAuth();
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
 
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
-  const isUsersPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
-  const isCoauthorsPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
-  const isArticlesPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
 
   return (
     <Routes>
+      <Route path="/configuracion-conferencia" element={
+        !isAuthenticated || !user ? <Navigate to="/login" replace /> : hasActiveRole(["ADMIN", "COMITE"]) ? <><Navbar /><ConferenceSettingsPage /></> : <Navigate to="/" replace />
+      } />
       <Route
         path="/recuperacion"
         element={
@@ -105,41 +218,6 @@ export default function App() {
       />
 
       <Route
-        path="/admin/usuarios"
-        element={
-          isUsersPreview || hasActiveRole(["ADMIN", "COMITE"]) ? (
-            <UserDeactivationPreview />
-          ) : (
-            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
-          )
-        }
-      />
-
-      <Route
-        path="/articulos/coautores"
-        element={
-          isCoauthorsPreview || hasActiveRole("AUTOR") ? (
-            <CoauthorsPreview />
-          ) : (
-            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
-          )
-        }
-      />
-
-      <Route
-        path="/articulos/catalogo"
-        element={
-          isArticlesPreview ? (
-            <ArticlesCatalogPreview />
-          ) : hasActiveRole(["ADMIN", "COMITE"]) ? (
-            <ArticlesCatalog fetchArticles={fetchArticles} />
-          ) : (
-            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
-          )
-        }
-      />
-
-      <Route
         path="/"
         element={
           !isAuthenticated || !user ? (
@@ -148,7 +226,7 @@ export default function App() {
             <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
               <Navbar />
 
-              <Container maxWidth="md" sx={{ py: 4 }}>
+              <Container maxWidth="lg" sx={{ py: 4 }}>
                 <Card elevation={1}>
                   <CardContent>
                     <Stack spacing={2.5}>
@@ -171,6 +249,15 @@ export default function App() {
                               key={opcion}
                               variant="outlined"
                               size="small"
+                              onClick={() => {
+                                if (opcion === "Mis artículos") {
+                                  navigate("/mis-articulos");
+                                }else if (opcion === "Enviar nueva ponencia") {
+                                  navigate("/articulos/nuevo");
+                                } else if (opcion === "Configuración de eventos") {
+                                  navigate("/configuracion-conferencia");
+                                }
+                              }}
                               sx={{ textTransform: "none" }}
                             >
                               {opcion}
@@ -186,70 +273,77 @@ export default function App() {
                             de cuentas y parámetros del sistema.
                           </Alert>
                           <CreateUserDialogPreview />
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            onClick={() => navigate("/admin/usuarios")}
-                            sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                          >
-                            Gestión de bajas de usuarios
-                          </Button>
+                          <AdminUsersDirectorySection />
                         </Stack>
                       )}
 
                       {hasActiveRole("COMITE") && (
-                        <Stack spacing={1.5} alignItems="flex-start">
+                        <Stack spacing={2}>
                           <Alert severity="success">
                             Permisos de <strong>Comité Científico</strong> activos: acceso habilitado a
-                            revisión, aval de artículos y gestión de bajas.
+                            revisión y aval de artículos.
                           </Alert>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            onClick={() => navigate("/admin/usuarios")}
-                            sx={{ textTransform: "none" }}
-                          >
-                            Gestión de bajas de usuarios
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            onClick={() => navigate("/articulos/catalogo")}
-                            sx={{ textTransform: "none" }}
-                          >
-                            Consultar catálogo de artículos
-                          </Button>
+                          <CreateUserDialogPreview />
+                          <AdminUsersDirectorySection />
                         </Stack>
-                      )}
-
-                      {hasActiveRole("ADMIN") && (
-                        <Button
-                          variant="outlined"
-                          onClick={() => navigate("/articulos/catalogo")}
-                          sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                        >
-                          Consultar catálogo de artículos
-                        </Button>
                       )}
 
                       {hasActiveRole("AUTOR") && (
-                        <Stack spacing={1.5} alignItems="flex-start">
-                          <Alert severity="info" variant="outlined">
-                            Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
-                            consultar tus artículos.
-                          </Alert>
-                          <Button
-                            variant="outlined"
-                            onClick={() => navigate("/articulos/coautores")}
-                            sx={{ textTransform: "none" }}
-                          >
-                            Editar coautores del artículo
-                          </Button>
-                        </Stack>
+                        <Alert severity="info" variant="outlined">
+                          Permisos de <strong>Autor</strong> activos: acceso habilitado para postular y
+                          consultar tus artículos.
+                        </Alert>
                       )}
                     </Stack>
                   </CardContent>
                 </Card>
               </Container>
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/mi-perfil"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <ProfileForm />
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/articulos/nuevo"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <SubmitArticleForm onCancel={() => navigate("/")} />
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/mis-articulos"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <MyArticlesTable
+                onBack={() => navigate("/")}
+                onNewArticle={() => navigate("/articulos/nuevo")}
+                onSelectArticle={(article) => navigate(`/articulos/${article.id}`)}
+              />
             </Box>
           )
         }

@@ -10,7 +10,9 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Checkbox,
   Container,
+  FormControlLabel,
   IconButton,
   InputAdornment,
   Stack,
@@ -21,7 +23,8 @@ import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { registerSchema } from "../validations/registerSchema";
 
 const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const API_ROOT = API_URL.endsWith("/api") ? API_URL : `${API_URL}/api`;
 
 export default function RegisterForm() {
   const recaptchaRef = useRef(null);
@@ -42,12 +45,13 @@ export default function RegisterForm() {
     reValidateMode: "onChange",
     defaultValues: {
       nombreCompleto: "",
+      apellidos: "",
       email: "",
       institucion: "",
       pais: "",
       password: "",
       confirmPassword: "",
-      recaptchaToken: "",
+      aceptaTratamientoDatos: false,
     },
   });
 
@@ -62,11 +66,19 @@ export default function RegisterForm() {
     setSubmitting(true);
     setFeedback(null);
 
-    const { confirmPassword: _, ...payload } = data;
-    // payload ya incluye: nombreCompleto, email, institucion, pais, password y recaptchaToken
+    const payload = {
+      correo: data.email.trim(),
+      nombres: data.nombreCompleto.trim(),
+      apellidos: data.apellidos.trim(),
+      afiliacion: data.institucion.trim(),
+      pais: data.pais.trim(),
+      clave: data.password,
+      confirmacion_clave: data.confirmPassword,
+      acepta_tratamiento_datos: data.aceptaTratamientoDatos,
+    };
 
     try {
-      const response = await axios.post(`${API_URL}/auth/register/`, payload, {
+      const response = await axios.post(`${API_ROOT}/usuarios/registro-autor/`, payload, {
         headers: { "Content-Type": "application/json" },
       });
 
@@ -77,16 +89,15 @@ export default function RegisterForm() {
       reset();
       recaptchaRef.current?.reset();
     } catch (error) {
-      const backendMsg =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
+      const responseErrors = error.response?.data;
+      const backendMsg = responseErrors?.detail || responseErrors?.message ||
+        Object.values(responseErrors || {}).flat().join(" ") ||
         "No se pudo completar el registro. Verifica tus datos o intenta más tarde.";
 
       setFeedback({
         type: "error",
         message: backendMsg,
       });
-      setValue("recaptchaToken", "", { shouldValidate: true });
       recaptchaRef.current?.reset();
     } finally {
       setSubmitting(false);
@@ -124,9 +135,24 @@ export default function RegisterForm() {
                     {...field}
                     fullWidth
                     required
-                    label="Nombre completo"
+                    label="Nombres"
                     error={!!errors.nombreCompleto}
                     helperText={errors.nombreCompleto?.message}
+                  />
+                )}
+              />
+
+              <Controller
+                name="apellidos"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    required
+                    label="Apellidos"
+                    error={!!errors.apellidos}
+                    helperText={errors.apellidos?.message}
                   />
                 )}
               />
@@ -256,12 +282,25 @@ export default function RegisterForm() {
                     Falta configurar <strong>VITE_RECAPTCHA_SITE_KEY</strong> en tu archivo <code>.env</code>.
                   </Alert>
                 )}
-                {errors.recaptchaToken && (
-                  <Typography variant="caption" color="error" sx={{ mt: 0.5, display: "block" }}>
-                    {errors.recaptchaToken.message}
-                  </Typography>
-                )}
               </Box>
+
+              <Controller
+                name="aceptaTratamientoDatos"
+                control={control}
+                render={({ field }) => (
+                  <Box>
+                    <FormControlLabel
+                      control={<Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />}
+                      label="Acepto el tratamiento de mis datos personales"
+                    />
+                    {errors.aceptaTratamientoDatos && (
+                      <Typography variant="caption" color="error" display="block">
+                        {errors.aceptaTratamientoDatos.message}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+              />
 
               <Box sx={{ pt: 2, display: "flex", justifyContent: "flex-end" }}>
                 <Button

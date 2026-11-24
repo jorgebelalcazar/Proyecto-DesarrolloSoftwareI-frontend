@@ -36,7 +36,7 @@ export default function Navbar() {
     setLoggingOut(true);
     try {
       await endSession();
-      navigate("/login", {replace: true});
+      navigate("/login", { replace: true });
     } finally {
       setLoggingOut(false);
     }
@@ -46,7 +46,13 @@ export default function Navbar() {
     <AppBar position="static" elevation={1} sx={{ bgcolor: "#1e293b" }}>
       <Toolbar sx={{ justifyContent: "space-between", flexWrap: "wrap", gap: 2, py: 1 }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <Typography variant="subtitle1" fontWeight={700} color="inherit">
+          <Typography
+            variant="subtitle1"
+            fontWeight={700}
+            color="inherit"
+            onClick={() => navigate("/")}
+            sx={{ cursor: "pointer" }}
+          >
             Sistema de Gestión
           </Typography>
           {activeRole && (
@@ -63,6 +69,20 @@ export default function Navbar() {
         </Stack>
 
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => navigate("/mi-perfil")}
+            sx={{
+              color: "#fff",
+              textTransform: "none",
+              fontWeight: 600,
+              "&:hover": { bgcolor: "rgba(255, 255, 255, 0.08)" },
+            }}
+          >
+            Mi Perfil
+          </Button>
+
           <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
             <Typography variant="body2" fontWeight={600} color="inherit">
               {user.nombre}
@@ -93,6 +113,13 @@ export default function Navbar() {
               onChange={(event) => switchRole(event.target.value)}
               sx={{
                 color: "#fff",
+                ".MuiSelect-select": {
+                  color: "#fff",
+                },
+                ".MuiSelect-select.Mui-disabled": {
+                  color: "#fff",
+                  WebkitTextFillColor: "#fff",
+                },
                 ".MuiOutlinedInput-notchedOutline": {
                   borderColor: "rgba(255, 255, 255, 0.35)",
                 },
@@ -102,10 +129,11 @@ export default function Navbar() {
                 "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                   borderColor: "#93c5fd",
                 },
-                ".MuiSvgIcon-root": { color: "#fff" },
-                "&.Mui-disabled": {
-                  color: "rgba(255, 255, 255, 0.7)",
-                  WebkitTextFillColor: "rgba(255, 255, 255, 0.7)",
+                "&.Mui-disabled .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "rgba(255, 255, 255, 0.35)",
+                },
+                ".MuiSvgIcon-root, .MuiSvgIcon-root.Mui-disabled": {
+                  color: "#fff",
                 },
               }}
             >
