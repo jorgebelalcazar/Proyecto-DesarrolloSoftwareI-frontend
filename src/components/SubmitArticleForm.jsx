@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Container,
   Divider,
   MenuItem,
@@ -14,6 +18,15 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SendIcon from "@mui/icons-material/Send";
+import {
+  articleSchema,
+  countWords,
+  MAX_ABSTRACT_WORDS,
+} from "../validations/articleSchema";
+import {
+  createArticleProposal,
+  getThematicLines,
+} from "../services/articleService";
 
 export const LINEAS_TEMATICAS_OFICIALES = [
   { id: 1, nombre: "Sistemas Inteligentes" },
@@ -23,12 +36,53 @@ export const LINEAS_TEMATICAS_OFICIALES = [
   { id: 5, nombre: "Software en la práctica" },
 ];
 
-export default function SubmitArticleForm({ onCancel }) {
-  const [titulo, setTitulo] = useState("");
-  const [resumen, setResumen] = useState("");
-  const [lineaTematica, setLineaTematica] = useState("");
+export default function SubmitArticleForm({ onCancel, onSuccess }) {
+  const [thematicLines, setThematicLines] = useState(
+    LINEAS_TEMATICAS_OFICIALES
+  );
   const [keywordInput, setKeywordInput] = useState("");
-  const [palabrasClave, setPalabrasClave] = useState([]);
+  const [serverError, setServerError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm({
+    resolver: zodResolver(articleSchema),
+    mode: "onChange",
+    defaultValues: {
+      titulo: "",
+      linea_tematica: "",
+      resumen: "",
+      palabras_clave: [],
+    },
+  });
+
+  const resumenValue = watch("resumen") || "";
+  const palabrasClave = watch("palabras_clave") || [];
+  const wordCount = countWords(resumenValue);
+  const isOverWordLimit = wordCount > MAX_ABSTRACT_WORDS;
+
+  // Intenta sincronizar los IDs reales desde el backend si el endpoint está disponible
+  useEffect(() => {
+    let active = true;
+    getThematicLines()
+      .then((lines) => {
+        if (active && Array.isArray(lines) && lines.length > 0) {
+          setThematicLines(lines);
+        }
+      })
+      .catch(() => {
+        // Mantiene el catálogo oficial local como respaldo
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleAddKeyword = (rawValue) => {
     const clean = rawValue.replace(/,/g, "").trim();
@@ -38,7 +92,10 @@ export default function SubmitArticleForm({ onCancel }) {
       (item) => item.toLowerCase() === clean.toLowerCase()
     );
     if (!exists) {
-      setPalabrasClave((prev) => [...prev, clean]);
+      setValue("palabras_clave", [...palabrasClave, clean], {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
     }
     setKeywordInput("");
   };
@@ -51,14 +108,39 @@ export default function SubmitArticleForm({ onCancel }) {
   };
 
   const handleDeleteKeyword = (keywordToDelete) => {
-    setPalabrasClave((prev) =>
-      prev.filter((item) => item !== keywordToDelete)
+    setValue(
+      "palabras_clave",
+      palabrasClave.filter((item) => item !== keywordToDelete),
+      { shouldValidate: true, shouldDirty: true }
     );
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    // La lógica de validación Zod, contador de palabras y envío POST se conectan en HU-14.4
+  const onSubmit = async (formData) => {
+    setServerError("");
+    setSuccessMessage("");
+
+    const payload = {
+      titulo: formData.titulo.trim(),
+      resumen: formData.resumen.trim(),
+      linea_tematica: Number(formData.linea_tematica),
+      palabras_clave: formData.palabras_clave,
+    };
+
+    try {
+      const created = await createArticleProposal(payload);
+      setSuccessMessage("¡Artículo postulado exitosamente!");
+      reset();
+      setKeywordInput("");
+      onSuccess?.(created);
+    } catch (err) {
+      const apiDetail =
+        err.response?.data?.detail ||
+        err.response?.data?.titulo?.[0] ||
+        err.response?.data?.resumen?.[0] ||
+        err.response?.data?.linea_tematica?.[0] ||
+        "No se pudo registrar la propuesta del artículo. Verifica tu conexión e intenta nuevamente.";
+      setServerError(apiDetail);
+    }
   };
 
   return (
@@ -103,51 +185,103 @@ export default function SubmitArticleForm({ onCancel }) {
 
             <Divider />
 
+            {serverError && <Alert severity="error">{serverError}</Alert>}
+            {successMessage && <Alert severity="success">{successMessage}</Alert>}
+
             {/* Formulario de Metadatos */}
-            <Box component="form" onSubmit={handleSubmit} noValidate>
+            <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
               <Stack spacing={3}>
                 {/* 1. Título del artículo */}
-                <TextField
-                  fullWidth
-                  required
-                  id="articulo-titulo"
-                  label="Título del artículo"
-                  placeholder="Ej. Arquitectura basada en microservicios para sistemas académicos"
-                  value={titulo}
-                  onChange={(e) => setTitulo(e.target.value)}
+                <Controller
+                  name="titulo"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      required
+                      id="articulo-titulo"
+                      label="Título del artículo"
+                      placeholder="Ej. Arquitectura basada en microservicios para sistemas académicos"
+                      error={Boolean(errors.titulo)}
+                      helperText={
+                        errors.titulo?.message ||
+                        `${field.value.length}/250 caracteres`
+                      }
+                    />
+                  )}
                 />
 
                 {/* 2. Selector desplegable de las 5 Líneas Temáticas oficiales */}
-                <TextField
-                  select
-                  fullWidth
-                  required
-                  id="articulo-linea-tematica"
-                  label="Línea temática"
-                  value={lineaTematica}
-                  onChange={(e) => setLineaTematica(e.target.value)}
-                  helperText="Selecciona una de las 5 líneas temáticas oficiales del evento."
-                >
-                  {LINEAS_TEMATICAS_OFICIALES.map((linea) => (
-                    <MenuItem key={linea.id} value={linea.id}>
-                      {linea.nombre}
-                    </MenuItem>
-                  ))}
-                </TextField>
-
-                {/* 3. Resumen (Abstract) */}
-                <TextField
-                  fullWidth
-                  required
-                  multiline
-                  minRows={5}
-                  maxRows={10}
-                  id="articulo-resumen"
-                  label="Resumen (Abstract)"
-                  placeholder="Describe el objetivo, metodología y principales aportes del artículo..."
-                  value={resumen}
-                  onChange={(e) => setResumen(e.target.value)}
+                <Controller
+                  name="linea_tematica"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      required
+                      id="articulo-linea-tematica"
+                      label="Línea temática"
+                      error={Boolean(errors.linea_tematica)}
+                      helperText={
+                        errors.linea_tematica?.message ||
+                        "Selecciona una de las 5 líneas temáticas oficiales del evento."
+                      }
+                    >
+                      {thematicLines.map((linea) => (
+                        <MenuItem key={linea.id} value={linea.id}>
+                          {linea.nombre}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
                 />
+
+                {/* 3. Resumen (Abstract) con contador dinámico de palabras (máx. 300) */}
+                <Box>
+                  <Controller
+                    name="resumen"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        required
+                        multiline
+                        minRows={5}
+                        maxRows={10}
+                        id="articulo-resumen"
+                        label="Resumen (Abstract)"
+                        placeholder="Describe el objetivo, metodología y principales aportes del artículo..."
+                        error={Boolean(errors.resumen) || isOverWordLimit}
+                        helperText={errors.resumen?.message}
+                      />
+                    )}
+                  />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      mt: 0.5,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      fontWeight={600}
+                      color={
+                        isOverWordLimit
+                          ? "error.main"
+                          : wordCount >= 270
+                          ? "warning.main"
+                          : "text.secondary"
+                      }
+                    >
+                      {wordCount} / {MAX_ABSTRACT_WORDS} palabras
+                    </Typography>
+                  </Box>
+                </Box>
 
                 {/* 4. Palabras clave */}
                 <Box>
@@ -160,7 +294,11 @@ export default function SubmitArticleForm({ onCancel }) {
                     onChange={(e) => setKeywordInput(e.target.value)}
                     onKeyDown={handleKeywordKeyDown}
                     onBlur={() => handleAddKeyword(keywordInput)}
-                    helperText="Agrega términos relevantes separados por Enter o coma."
+                    error={Boolean(errors.palabras_clave)}
+                    helperText={
+                      errors.palabras_clave?.message ||
+                      "Agrega términos relevantes separados por Enter o coma."
+                    }
                   />
 
                   {palabrasClave.length > 0 && (
@@ -197,6 +335,7 @@ export default function SubmitArticleForm({ onCancel }) {
                     <Button
                       type="button"
                       variant="outlined"
+                      disabled={isSubmitting}
                       onClick={onCancel}
                       sx={{ textTransform: "none", borderRadius: 2 }}
                     >
@@ -208,7 +347,14 @@ export default function SubmitArticleForm({ onCancel }) {
                     type="submit"
                     variant="contained"
                     size="large"
-                    endIcon={<SendIcon />}
+                    disabled={!isValid || isSubmitting}
+                    endIcon={
+                      isSubmitting ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : (
+                        <SendIcon />
+                      )
+                    }
                     sx={{
                       textTransform: "none",
                       px: 4,
@@ -216,7 +362,7 @@ export default function SubmitArticleForm({ onCancel }) {
                       bgcolor: "#2859d8",
                     }}
                   >
-                    Registrar propuesta
+                    {isSubmitting ? "Registrando..." : "Registrar propuesta"}
                   </Button>
                 </Stack>
               </Stack>
