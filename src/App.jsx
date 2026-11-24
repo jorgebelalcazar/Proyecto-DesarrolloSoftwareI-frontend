@@ -254,10 +254,11 @@ export default function App() {
                                   navigate("/mis-articulos");
                                 }else if (opcion === "Enviar nueva ponencia") {
                                   navigate("/articulos/nuevo");
+                                } else if (opcion === "Configuración de eventos") {
+                                  navigate("/configuracion-conferencia");
                                 }
                               }}
                               sx={{ textTransform: "none" }}
-                              onClick={() => opcion === "Configuración de eventos" && navigate("/configuracion-conferencia")}
                             >
                               {opcion}
                             </Button>
