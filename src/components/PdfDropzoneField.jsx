@@ -1,15 +1,17 @@
 import { useRef, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   IconButton,
+  LinearProgress,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import CloseIcon from "@mui/icons-material/Close";
 
 function formatFileSize(bytes) {
   if (!bytes && bytes !== 0) return "";
@@ -20,6 +22,8 @@ function formatFileSize(bytes) {
 
 export default function PdfDropzoneField({
   file,
+  error = "",
+  uploadProgress = null,
   onFileSelect,
   onFileRemove,
   disabled = false,
@@ -62,6 +66,8 @@ export default function PdfDropzoneField({
     }
   };
 
+  const isUploading = typeof uploadProgress === "number";
+
   return (
     <Box>
       <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
@@ -90,12 +96,20 @@ export default function PdfDropzoneField({
             borderRadius: 2.5,
             borderStyle: "dashed",
             borderWidth: 2,
-            borderColor: isDragging ? "#2859d8" : "#cbd5e1",
+            borderColor: error
+              ? "#dc2626"
+              : isDragging
+              ? "#2859d8"
+              : "#cbd5e1",
             bgcolor: isDragging ? "rgba(40, 89, 216, 0.04)" : "#f8fafc",
             cursor: disabled ? "not-allowed" : "pointer",
             transition: "all 0.2s ease",
             "&:hover": {
-              borderColor: disabled ? "#cbd5e1" : "#2859d8",
+              borderColor: disabled
+                ? "#cbd5e1"
+                : error
+                ? "#dc2626"
+                : "#2859d8",
               bgcolor: disabled ? "#f8fafc" : "rgba(40, 89, 216, 0.03)",
             },
           }}
@@ -104,7 +118,7 @@ export default function PdfDropzoneField({
             <CloudUploadIcon
               sx={{
                 fontSize: 40,
-                color: isDragging ? "#2859d8" : "#64748b",
+                color: error ? "#dc2626" : isDragging ? "#2859d8" : "#64748b",
               }}
             />
             <Typography variant="body1" fontWeight={600} color="text.primary">
@@ -130,45 +144,82 @@ export default function PdfDropzoneField({
           sx={{
             p: 2,
             borderRadius: 2.5,
-            borderColor: "#93c5fd",
-            bgcolor: "#eff6ff",
+            borderColor: error ? "#fca5a5" : "#93c5fd",
+            bgcolor: error ? "#fef2f2" : "#eff6ff",
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            spacing={2}
-          >
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0 }}>
-              <PictureAsPdfIcon sx={{ fontSize: 36, color: "#dc2626", flexShrink: 0 }} />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography
-                  variant="body2"
-                  fontWeight={600}
-                  color="text.primary"
-                  noWrap
-                  title={file.name}
-                >
-                  {file.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {formatFileSize(file.size)} · Documento PDF listo para adjuntar
-                </Typography>
-              </Box>
+          <Stack spacing={1.5}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={2}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1.5}
+                sx={{ minWidth: 0 }}
+              >
+                <PictureAsPdfIcon
+                  sx={{ fontSize: 36, color: "#dc2626", flexShrink: 0 }}
+                />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography
+                    variant="body2"
+                    fontWeight={600}
+                    color="text.primary"
+                    noWrap
+                    title={file.name}
+                  >
+                    {file.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatFileSize(file.size)} · Documento PDF validado
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <IconButton
+                aria-label="Eliminar archivo PDF"
+                color="error"
+                size="small"
+                disabled={disabled}
+                onClick={() => onFileRemove?.()}
+              >
+                <CloseIcon />
+              </IconButton>
             </Stack>
 
-            <IconButton
-              aria-label="Eliminar archivo PDF"
-              color="error"
-              size="small"
-              disabled={disabled}
-              onClick={() => onFileRemove?.()}
-            >
-              <DeleteOutlineIcon />
-            </IconButton>
+            {isUploading && (
+              <Box>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  sx={{ mb: 0.5 }}
+                >
+                  <Typography variant="caption" fontWeight={600} color="primary">
+                    Subiendo manuscrito a Supabase Storage...
+                  </Typography>
+                  <Typography variant="caption" fontWeight={700} color="primary">
+                    {uploadProgress}%
+                  </Typography>
+                </Stack>
+                <LinearProgress
+                  variant="determinate"
+                  value={uploadProgress}
+                  sx={{ height: 7, borderRadius: 4 }}
+                />
+              </Box>
+            )}
           </Stack>
         </Paper>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 1, borderRadius: 2 }}>
+          {error}
+        </Alert>
       )}
     </Box>
   );
