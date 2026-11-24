@@ -26,6 +26,7 @@ import EditUserDialog from "./components/EditUserDialog.jsx";
 import SubmitArticleForm from "./components/SubmitArticleForm.jsx";
 import { deactivateUserByAdmin } from "./services/userAdminService";
 import MyArticlesTable from "./components/MyArticlesTable.jsx";
+import ArticleDetailModal from "./components/ArticleDetailModal.jsx";
 import "./recovery.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -171,7 +172,7 @@ export default function App() {
   const navigate = useNavigate();
   const { isAuthenticated, user, activeRole, startSession, hasActiveRole } = useAuth();
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
-
+  const [selectedArticleId, setSelectedArticleId] = useState(null);
   const menusActivos = MENUS_POR_ROL[activeRole] || [];
 
   return (
@@ -356,8 +357,13 @@ export default function App() {
               <MyArticlesTable
                 onBack={() => navigate("/")}
                 onNewArticle={() => navigate("/articulos/nuevo")}
-                onSelectArticle={(article) => navigate(`/articulos/${article.id}`)}
+                onSelectArticle={(article) => setSelectedArticleId(article.id)}
                 onEditArticle={(article) => navigate(`/articulos/${article.id}/editar`)}
+              />
+              <ArticleDetailModal
+                open={Boolean(selectedArticleId)}
+                articleId={selectedArticleId}
+                onClose={() => setSelectedArticleId(null)}
               />
             </Box>
           )
