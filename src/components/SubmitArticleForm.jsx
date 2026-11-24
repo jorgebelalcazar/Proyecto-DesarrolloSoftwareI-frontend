@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SendIcon from "@mui/icons-material/Send";
+import PdfDropzoneField from "./PdfDropzoneField";
 import {
   articleSchema,
   countWords,
@@ -43,6 +44,7 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
   const [keywordInput, setKeywordInput] = useState("");
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [selectedPdf, setSelectedPdf] = useState(null);
 
   const {
     control,
@@ -323,6 +325,13 @@ export default function SubmitArticleForm({ onCancel, onSuccess }) {
                     </Box>
                   )}
                 </Box>
+
+                <PdfDropzoneField
+                    file={selectedPdf}
+                    disabled={isSubmitting}
+                    onFileSelect={(file) => setSelectedPdf(file)}
+                    onFileRemove={() => setSelectedPdf(null)}
+                />
 
                 {/* Acciones del formulario */}
                 <Stack
