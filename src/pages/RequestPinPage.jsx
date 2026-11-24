@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { requestRecoveryPin } from "../api/recovery.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
 
 export default function RequestPinPage({ navigate }) {
   const [email, setEmail] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const recaptchaRef = useRef(null);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -18,17 +22,25 @@ export default function RequestPinPage({ navigate }) {
       return;
     }
 
+    if (!captchaToken) {
+      setError("Por favor completa la verificación reCAPTCHA antes de continuar.");
+      setStatus("error");
+      return;
+    }
+
     setError("");
     setStatus("loading");
 
     try {
-      await requestRecoveryPin(normalizedEmail);
+      await requestRecoveryPin(normalizedEmail, captchaToken);
       window.sessionStorage.setItem("hu06-recovery-email", normalizedEmail);
       setStatus("success");
       window.setTimeout(() => navigate("/recuperacion/pin"), 900);
     } catch (requestError) {
       setError(requestError.message);
       setStatus("error");
+      setCaptchaToken("");
+      recaptchaRef.current?.reset();
     }
   }
 
@@ -90,6 +102,28 @@ export default function RequestPinPage({ navigate }) {
             required
           />
           <p id="email-help" className="field-help">Usaremos este correo únicamente para enviarte el código.</p>
+
+          <div style={{ margin: "16px 0", display: "flex", justifyContent: "center" }}>
+            {SITE_KEY ? (
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={SITE_KEY}
+                onChange={(token) => {
+                  setCaptchaToken(token || "");
+                  if (status === "error") {
+                    setStatus("idle");
+                    setError("");
+                  }
+                }}
+                onExpired={() => setCaptchaToken("")}
+              />
+            ) : (
+              <div className="notice error" role="alert">
+                <span className="notice-icon" aria-hidden="true">!</span>
+                <span>Falta configurar <strong>VITE_RECAPTCHA_SITE_KEY</strong> en el archivo <code>.env</code>.</span>
+              </div>
+            )}
+          </div>
 
           {status === "error" && (
             <div id="form-message" className="notice error" role="alert">
