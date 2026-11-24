@@ -21,6 +21,7 @@ import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
+import ConferenceSettingsPage from "./pages/ConferenceSettingsPage.jsx";
 import EditUserDialog from "./components/EditUserDialog.jsx";
 import SubmitArticleForm from "./components/SubmitArticleForm.jsx";
 import { deactivateUserByAdmin } from "./services/userAdminService";
@@ -174,6 +175,9 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/configuracion-conferencia" element={
+        !isAuthenticated || !user ? <Navigate to="/login" replace /> : hasActiveRole(["ADMIN", "COMITE"]) ? <><Navbar /><ConferenceSettingsPage /></> : <Navigate to="/" replace />
+      } />
       <Route
         path="/recuperacion"
         element={
@@ -250,6 +254,7 @@ export default function App() {
                                 }
                               }}
                               sx={{ textTransform: "none" }}
+                              onClick={() => opcion === "Configuración de eventos" && navigate("/configuracion-conferencia")}
                             >
                               {opcion}
                             </Button>
