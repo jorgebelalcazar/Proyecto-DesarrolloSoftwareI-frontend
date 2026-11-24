@@ -78,7 +78,7 @@ function AdminUsersDirectorySection() {
 
         if (filters.search.trim()) params.search = filters.search.trim();
         if (filters.rol !== "TODOS") params.rol = filters.rol;
-        if (filters.activo !== "TODOS") params.activo = filters.activo;
+        if (filters.activo !== "TODOS") params.estado = filters.activo;
 
         const { data } = await axios.get(`${API_URL}/api/usuarios/`, {
           params,
