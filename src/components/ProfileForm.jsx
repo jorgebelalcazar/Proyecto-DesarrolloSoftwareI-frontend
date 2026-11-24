@@ -106,10 +106,8 @@ export default function ProfileForm() {
         pais: updated?.pais ?? formData.pais,
       };
 
-      // Reinicia el estado dirty con los valores ya guardados
       reset(syncedValues);
 
-      // Sincroniza el nombre/correo mostrado en LocalStorage si existe
       try {
         const storedUser = JSON.parse(localStorage.getItem("user") || "null");
         if (storedUser) {
@@ -180,7 +178,6 @@ export default function ProfileForm() {
             </Alert>
           )}
 
-          {/* Información de solo lectura (Roles y Líneas Temáticas asignadas) */}
           {(readonlyMeta.roles.length > 0 || readonlyMeta.especialidades.length > 0) && (
             <Box
               sx={{

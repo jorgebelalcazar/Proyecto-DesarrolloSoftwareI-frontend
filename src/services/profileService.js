@@ -18,7 +18,6 @@ export async function updateMyProfile(profileData) {
   return data;
 }
 
-
 /*
 // MOCK TEMPORAL PARA PRUEBAS SIN BACK-END (Recordar revertir antes del commit final)
 let mockProfile = {

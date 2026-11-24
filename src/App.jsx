@@ -15,12 +15,12 @@ import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
+import ProfileForm from "./components/ProfileForm.jsx";
 import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
 import PinStepPage from "./pages/PinStepPage.jsx";
 import "./recovery.css";
-import ProfileForm from "./components/ProfileForm.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
