@@ -332,6 +332,20 @@ export default function App() {
       />
 
       <Route
+          path="/articulos/:id/editar"
+          element={
+            !isAuthenticated || !user ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+                <Navbar />
+                <SubmitArticleForm onCancel={() => navigate("/mis-articulos")} />
+              </Box>
+            )
+          }
+        />      
+
+      <Route
         path="/mis-articulos"
         element={
           !isAuthenticated || !user ? (
@@ -343,6 +357,7 @@ export default function App() {
                 onBack={() => navigate("/")}
                 onNewArticle={() => navigate("/articulos/nuevo")}
                 onSelectArticle={(article) => navigate(`/articulos/${article.id}`)}
+                onEditArticle={(article) => navigate(`/articulos/${article.id}/editar`)}
               />
             </Box>
           )

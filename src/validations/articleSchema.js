@@ -59,4 +59,15 @@ export const articleSchema = z.object({
     .array(z.string().trim().min(1))
     .min(1, "Agrega al menos una palabra clave para indexar el artículo.")
     .max(10, "Puedes agregar máximo 10 palabras clave."),
+  coautores: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(3, "Cada coautor debe tener al menos 3 caracteres.")
+        .max(120, "El nombre/correo del coautor no debe superar los 120 caracteres.")
+    )
+    .max(10, "Puedes registrar máximo 10 coautores.")
+    .optional()
+    .default([]),
 });

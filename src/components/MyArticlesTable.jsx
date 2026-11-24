@@ -26,6 +26,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import EditIcon from "@mui/icons-material/Edit";
 import SearchIcon from "@mui/icons-material/Search";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import ArticleIcon from "@mui/icons-material/Article";
@@ -85,13 +86,14 @@ export default function MyArticlesTable({
   onBack,
   onNewArticle,
   onSelectArticle,
+  onEditArticle,
 }) {
   const [articles, setArticles] = useState([]);
   const [thematicLines, setThematicLines] = useState(LINEAS_TEMATICAS_BASE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Filtros (Figura 19)
+  // Filtros
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [lineFilter, setLineFilter] = useState("");
@@ -128,46 +130,6 @@ export default function MyArticlesTable({
     return () => {
       active = false;
     };
-
-    /*setArticles([
-      {
-        id: 101,
-        titulo: "Arquitectura basada en microservicios para plataformas académicas",
-        linea_tematica: 4,
-        version_actual: 1,
-        estado: "POSTULADO",
-      },
-      {
-        id: 102,
-        titulo: "Modelos de aprendizaje profundo aplicados a deserción estudiantil",
-        linea_tematica: 1,
-        version_actual: 2,
-        estado: "EN_REVISION",
-      },
-      {
-        id: 103,
-        titulo: "Gamificación en la enseñanza de estructuras de datos",
-        linea_tematica: 3,
-        version_actual: 2,
-        estado: "CORRECCIONES",
-      },
-      {
-        id: 104,
-        titulo: "Optimización de consultas distribuidas en entornos cloud",
-        linea_tematica: 2,
-        version_actual: 3,
-        estado: "ACEPTADO",
-      },
-      {
-        id: 105,
-        titulo: "Propuesta preliminar de integración continua",
-        linea_tematica: 5,
-        version_actual: 1,
-        estado: "RECHAZADO",
-      },
-    ]);
-    setLoading(false);*/
-    // Descomentar para ver una prueba de articulos postulados
   }, []);
 
   const filteredArticles = useMemo(() => {
@@ -267,7 +229,7 @@ export default function MyArticlesTable({
 
             <Divider />
 
-            {/* Barra de Filtros por Título, Estado y Línea Temática (Fig. 19) */}
+            {/* Barra de Filtros por Título, Estado y Línea Temática */}
             <Stack
               direction={{ xs: "column", md: "row" }}
               spacing={2}
@@ -382,7 +344,7 @@ export default function MyArticlesTable({
                         Estado
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>
-                        Detalle
+                        Acciones
                       </TableCell>
                     </TableRow>
                   </TableHead>
@@ -431,16 +393,41 @@ export default function MyArticlesTable({
                           </TableCell>
 
                           <TableCell align="right">
-                            <Tooltip title="Ver detalle del artículo">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                aria-label={`Ver detalle de ${article.titulo}`}
-                                onClick={() => onSelectArticle?.(article)}
-                              >
-                                <VisibilityIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            <Stack
+                              direction="row"
+                              spacing={0.5}
+                              justifyContent="flex-end"
+                            >
+                              {onEditArticle && (
+                                <Tooltip title="Editar metadatos del artículo">
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      color="primary"
+                                      disabled={
+                                        String(article.estado || "").toUpperCase() ===
+                                        "DESHABILITADO"
+                                      }
+                                      aria-label={`Editar ${article.titulo}`}
+                                      onClick={() => onEditArticle(article)}
+                                    >
+                                      <EditIcon fontSize="small" />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              )}
+
+                              <Tooltip title="Ver detalle del artículo">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  aria-label={`Ver detalle de ${article.titulo}`}
+                                  onClick={() => onSelectArticle?.(article)}
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       );
