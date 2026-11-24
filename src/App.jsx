@@ -15,6 +15,7 @@ import CreateUserDialogPreview from "./components/CreateUserDialogPreview.jsx";
 import RegisterForm from "./components/RegisterForm";
 import LoginPage from "./components/LoginPage.jsx";
 import Navbar from "./components/Navbar.jsx";
+import ProfileForm from "./components/ProfileForm.jsx";
 import UsersDirectoryTable from "./components/UsersDirectoryTable.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import RequestPinPage from "./pages/RequestPinPage.jsx";
@@ -242,6 +243,20 @@ export default function App() {
                   </CardContent>
                 </Card>
               </Container>
+            </Box>
+          )
+        }
+      />
+
+      <Route
+        path="/mi-perfil"
+        element={
+          !isAuthenticated || !user ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <Box sx={{ minHeight: "100vh", bgcolor: "#f8fafc" }}>
+              <Navbar />
+              <ProfileForm />
             </Box>
           )
         }
