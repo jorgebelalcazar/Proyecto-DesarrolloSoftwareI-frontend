@@ -10,6 +10,11 @@ export async function createArticleProposal(payload) {
   return data;
 }
 
+export async function getArticleDetail(articleId) {
+  const { data } = await apiClient.get(`/api/articulos/${articleId}/`);
+  return data;
+}
+
 export async function uploadArticleInitialPdf(articleId, pdfFile, onProgress) {
   const formData = new FormData();
   formData.append("archivo", pdfFile);
