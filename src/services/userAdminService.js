@@ -10,6 +10,11 @@ export async function updateUserByAdmin(userId, payload) {
   return data;
 }
 
+export async function deactivateUserByAdmin(userId) {
+  const { data } = await apiClient.delete(`/api/usuarios/${userId}/`);
+  return data;
+}
+
 /*
 // MOCK TEMPORAL PARA PRUEBAS SIN BACK-END (Revertir antes del commit final)
 export async function getThematicLines() {
