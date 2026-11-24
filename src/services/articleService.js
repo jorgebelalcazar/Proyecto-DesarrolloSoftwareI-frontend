@@ -18,6 +18,12 @@ export async function getActiveCallConfig() {
     return null;
   }
 }
+
+export async function getArticleDetail(articleId) {
+  const { data } = await apiClient.get(`/api/articulos/${articleId}/`);
+  return data;
+}
+
 export async function uploadArticleInitialPdf(articleId, pdfFile, onProgress) {
   const formData = new FormData();
   formData.append("archivo", pdfFile);
@@ -52,4 +58,14 @@ export async function getMyArticles(params = {}) {
     params: cleanParams,
   });
   return Array.isArray(data) ? data : data?.results || [];
+}
+
+export async function getArticleById(articleId) {
+  const { data } = await apiClient.get(`/api/articulos/${articleId}/`);
+  return data;
+}
+
+export async function updateArticleMetadata(articleId, payload) {
+  const { data } = await apiClient.patch(`/api/articulos/${articleId}/`, payload);
+  return data;
 }
