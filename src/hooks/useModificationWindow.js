@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 const LOCKED_ARTICLE_STATES = [
+  "DESHABILITADO",
   "EN_REVISION",
   "APROBADO",
   "ACEPTADO",
@@ -73,7 +74,7 @@ export function useModificationWindow(article = null, callConfig = null) {
     }
 
     // 3. Validación contra fecha/hora límite de modificación
-    if (deadline && now >= deadline.getTime()) {
+    if (deadline && now > deadline.getTime()) {
       const formattedDeadline = deadline.toLocaleString("es-CO", {
         year: "numeric",
         month: "long",

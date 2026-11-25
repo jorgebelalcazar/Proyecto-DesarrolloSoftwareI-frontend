@@ -24,12 +24,12 @@ export async function getArticleDetail(articleId) {
   return data;
 }
 
-export async function uploadArticleInitialPdf(articleId, pdfFile, onProgress) {
+export async function uploadArticlePdfVersion(articleId, pdfFile, onProgress) {
   const formData = new FormData();
   formData.append("archivo", pdfFile);
 
   const { data } = await apiClient.post(
-    `/api/articulos/${articleId}/subir-pdf/`,
+    `/api/articulos/${articleId}/versiones/`,
     formData,
     {
       headers: {
@@ -48,6 +48,10 @@ export async function uploadArticleInitialPdf(articleId, pdfFile, onProgress) {
 
   return data;
 }
+
+// Mantiene el nombre usado por la postulación mientras el contrato común
+// registra la primera versión y los reemplazos en la colección de versiones.
+export const uploadArticleInitialPdf = uploadArticlePdfVersion;
 
 export async function getMyArticles(params = {}) {
   const cleanParams = {};

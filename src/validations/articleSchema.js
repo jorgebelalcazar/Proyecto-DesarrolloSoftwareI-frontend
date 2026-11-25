@@ -3,6 +3,43 @@ import { z } from "zod";
 export const MAX_ABSTRACT_WORDS = 300;
 export const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
+const archivoPdfRequerido = z
+  .custom(
+    (archivo) =>
+      Boolean(
+        archivo &&
+          typeof archivo === "object" &&
+          typeof archivo.name === "string" &&
+          typeof archivo.type === "string" &&
+          typeof archivo.size === "number"
+      ),
+    "Debes adjuntar el PDF que vas a reemplazar."
+  )
+  .refine(
+    (archivo) => archivo.name.toLowerCase().endsWith(".pdf"),
+    "El archivo debe tener extensión .pdf."
+  )
+  .refine(
+    (archivo) => archivo.type === "application/pdf",
+    "El tipo MIME debe ser application/pdf."
+  )
+  .refine((archivo) => archivo.size > 0, "El archivo PDF está vacío.")
+  .refine(
+    (archivo) => archivo.size <= MAX_PDF_SIZE_BYTES,
+    "El archivo PDF no puede superar 10 MB."
+  );
+
+export const reemplazoPdfInicialSchema = z.object({
+  archivo: archivoPdfRequerido,
+});
+
+export function validateReplacementPdfFile(file) {
+  const resultado = reemplazoPdfInicialSchema.safeParse({ archivo: file });
+  return resultado.success
+    ? null
+    : resultado.error.issues[0]?.message || "El archivo PDF no es válido.";
+}
+
 export function countWords(text = "") {
   const trimmed = text.trim();
   if (!trimmed) return 0;
