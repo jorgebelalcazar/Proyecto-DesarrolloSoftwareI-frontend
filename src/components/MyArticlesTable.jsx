@@ -29,7 +29,9 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import SearchIcon from "@mui/icons-material/Search";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import ArticleIcon from "@mui/icons-material/Article";
+import ReplaceInitialPdfDialog from "./ReplaceInitialPdfDialog";
 import { getMyArticles, getThematicLines } from "../services/articleService";
 
 const LINEAS_TEMATICAS_BASE = [
@@ -92,6 +94,8 @@ export default function MyArticlesTable({
   const [thematicLines, setThematicLines] = useState(LINEAS_TEMATICAS_BASE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [articleToReplace, setArticleToReplace] = useState(null);
+  const [replaceMessage, setReplaceMessage] = useState("");
 
   // Filtros
   const [searchText, setSearchText] = useState("");
@@ -295,6 +299,7 @@ export default function MyArticlesTable({
             </Stack>
 
             {error && <Alert severity="error">{error}</Alert>}
+            {replaceMessage && <Alert severity="success">{replaceMessage}</Alert>}
 
             {/* Contenido principal: Carga / Tabla / Estado vacío */}
             {loading ? (
@@ -398,6 +403,19 @@ export default function MyArticlesTable({
                               spacing={0.5}
                               justifyContent="flex-end"
                             >
+                              <Tooltip title="Reemplazar PDF inicial">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  aria-label={`Reemplazar PDF de ${article.titulo}`}
+                                  onClick={() => {
+                                    setReplaceMessage("");
+                                    setArticleToReplace(article);
+                                  }}
+                                >
+                                  <PictureAsPdfIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                               {onEditArticle && (
                                 <Tooltip title="Editar metadatos del artículo">
                                   <span>
@@ -439,6 +457,17 @@ export default function MyArticlesTable({
           </Stack>
         </CardContent>
       </Card>
+      <ReplaceInitialPdfDialog
+        article={articleToReplace}
+        open={Boolean(articleToReplace)}
+        onClose={() => setArticleToReplace(null)}
+        onSuccess={(version) => {
+          setArticles((current) => current.map((item) => item.id === version.articulo
+            ? { ...item, version_actual: version.numero, numero_version: version.numero }
+            : item));
+          setReplaceMessage(`PDF reemplazado correctamente. Se registró la versión ${version.numero}.`);
+        }}
+      />
     </Container>
   );
 }
